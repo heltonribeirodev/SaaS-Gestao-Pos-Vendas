@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="icon" type="image/png" href="assets/images/ForteCare-F-colors.png">
     
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
@@ -68,6 +69,10 @@
     </div>
     <div class="topbar-right">
       <button class="btn btn-ghost" onclick="exportCSV()">📥 Exportar CSV</button>
+      <button class="btn btn-ghost" onclick="openManualModal()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Incluir Manual
+      </button>
       <button class="btn btn-primary" onclick="openModal()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         Importar Planilha
@@ -201,7 +206,6 @@
           <div class="page-title">Pedidos</div>
           <div class="page-sub" id="p-sub">Todos os Pedidos</div>
         </div>
-        <button class="btn btn-ghost" onclick="exportCSV()">📥 Exportar CSV</button>
       </div>
 
       <div class="filters-wrap" style="flex-direction:column;align-items:stretch">
@@ -424,6 +428,79 @@
     <div class="import-ok" id="import-ok"></div>
     <div class="modal-acts">
       <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="manual-overlay">
+  <div class="modal-box" style="max-width:580px;width:100%;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column">
+    <div class="modal-h" id="manual-modal-title">Incluir Pedido Manual</div>
+    <div class="modal-sh">Preencha os dados do pedido para incluí-lo na base</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="login-field">
+        <label>Nº da NF <span style="color:#EF4444">*</span></label>
+        <input type="text" id="m-nf" placeholder="Ex: 83001" required>
+      </div>
+      <div class="login-field">
+        <label>Vendedor <span style="color:#EF4444">*</span></label>
+        <input type="text" id="m-vendedor" placeholder="Ex: ANA SOUZA">
+      </div>
+      <div class="login-field" style="grid-column:span 2">
+        <label>Destinatário <span style="color:#EF4444">*</span></label>
+        <input type="text" id="m-destinatario" placeholder="Ex: HOSPITAL XYZ LTDA" required>
+      </div>
+      <div class="login-field">
+        <label>UF <span style="color:#EF4444">*</span></label>
+        <input type="text" id="m-uf" placeholder="Ex: SP" maxlength="2" style="text-transform:uppercase">
+      </div>
+      <div class="login-field" >
+        <label>Município <span style="color:#EF4444">*</span></label>
+        <input type="text" id="m-municipio" placeholder="Ex: São Paulo" required>
+      </div>
+      <div class="login-field" style="grid-column:span 2">
+        <label>Transportadora <span style="color:#EF4444">*</span></label>
+        <input type="text" id="m-transportadora" placeholder="Ex: BRASPRESS" required>
+      </div>
+      <div class="login-field">
+        <label>Data de Emissão <span style="color:#EF4444">*</span></label>
+        <input type="date" id="m-emissao" required>
+      </div>
+      <div class="login-field">
+        <label>Previsão de Entrega <span style="color:#EF4444">*</span></label>
+        <input type="date" id="m-previsao" required>
+      </div>
+      <div class="login-field">
+        <label>Valor NF (R$) <span style="color:#EF4444">*</span></label>
+        <input type="number" step="0.01" min="0" id="m-valornf" placeholder="0,00" required>
+      </div>
+      <div class="login-field">
+        <label>Valor Frete (R$) <span style="color:#EF4444">*</span></label>
+        <input type="number" step="0.01" min="0" id="m-valorfrete" placeholder="0,00" required>
+      </div>
+      <div class="login-field">
+        <label>Status</label>
+        <select id="m-status" class="fsel" style="width:100%">
+          <option value="EM TRÂNSITO">🚚 Em Trânsito</option>
+          <option value="EM ROTA">🔶 Em Rota</option>
+          <option value="ENTREGUE">✅ Entregue</option>
+        </select>
+      </div>
+      <div class="login-field">
+        <label>Contato</label>
+        <input type="text" id="m-contato" placeholder="E-mail ou telefone">
+      </div>
+      <div class="login-field" style="grid-column:span 2">
+        <label>Observação</label>
+        <input type="text" id="m-obs" placeholder="Informação adicional">
+      </div>
+    </div>
+
+    <div class="login-error" id="manual-modal-error" style="display:none"></div>
+
+    <div class="modal-acts">
+      <button class="btn btn-ghost" onclick="closeManualModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveManualPedido()">Incluir Pedido</button>
     </div>
   </div>
 </div>

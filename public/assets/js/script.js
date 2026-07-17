@@ -151,11 +151,15 @@ document.addEventListener('DOMContentLoaded', () => {
   renderDashboard();   // só a aba inicial — lazy render para as demais
   renderPedidos();
 
-  // Busca rápida global
-  document.getElementById('g-search').addEventListener('input', (e) => {
-    document.getElementById('f-q').value = e.target.value;
-    applyFilters();
-  });
+  // Busca rápida global (opcional — só ativa se o campo existir no HTML)
+  const gSearch = document.getElementById('g-search');
+  if (gSearch) {
+    gSearch.addEventListener('input', (e) => {
+      const fq = document.getElementById('f-q');
+      if (fq) fq.value = e.target.value;
+      applyFilters();
+    });
+  }
 });
 
 // Alimenta os elementos select dinamicamente baseado nos dados atuais
@@ -1123,6 +1127,91 @@ function showToast(msg) {
 
 function openModal() { document.getElementById('overlay').classList.add('open'); }
 function closeModal() { document.getElementById('overlay').classList.remove('open'); }
+
+// ═══════════════════════════════════════════════
+// INCLUSÃO MANUAL DE PEDIDO
+// ═══════════════════════════════════════════════
+function openManualModal() {
+  // Preenche data de emissão com hoje por padrão
+  const hoje = new Date().toISOString().split('T')[0];
+  document.getElementById('m-emissao').value = hoje;
+  document.getElementById('m-nf').value = '';
+  document.getElementById('m-vendedor').value = '';
+  document.getElementById('m-destinatario').value = '';
+  document.getElementById('m-uf').value = '';
+  document.getElementById('m-municipio').value = '';
+  document.getElementById('m-transportadora').value = '';
+  document.getElementById('m-previsao').value = '';
+  document.getElementById('m-valornf').value = '';
+  document.getElementById('m-valorfrete').value = '';
+  document.getElementById('m-status').value = 'EM TRÂNSITO';
+  document.getElementById('m-contato').value = '';
+  document.getElementById('m-obs').value = '';
+  document.getElementById('manual-modal-error').style.display = 'none';
+  document.getElementById('manual-overlay').classList.add('open');
+  document.getElementById('m-nf').focus();
+}
+
+function closeManualModal() {
+  document.getElementById('manual-overlay').classList.remove('open');
+}
+
+function saveManualPedido() {
+  const errorEl = document.getElementById('manual-modal-error');
+  errorEl.style.display = 'none';
+
+  const nf     = document.getElementById('m-nf').value.trim();
+  const vend   = document.getElementById('m-vendedor').value.trim().toUpperCase();
+  const dest   = document.getElementById('m-destinatario').value.trim().toUpperCase();
+  const uf     = document.getElementById('m-uf').value.trim().toUpperCase();
+  const mun    = document.getElementById('m-municipio').value.trim().toUpperCase();
+  const transp = document.getElementById('m-transportadora').value.trim().toUpperCase();
+  const emis   = document.getElementById('m-emissao').value;
+  const prev   = document.getElementById('m-previsao').value;
+  const valorNF = parseFloat(document.getElementById('m-valornf').value) || 0;
+  const valorC  = parseFloat(document.getElementById('m-valorfrete').value) || 0;
+  const status  = document.getElementById('m-status').value;
+  const contato = document.getElementById('m-contato').value.trim();
+  const obs     = document.getElementById('m-obs').value.trim();
+
+  // Validação dos campos obrigatórios
+  if (!nf || !vend || !dest || !uf || !transp || !emis) {
+    errorEl.innerText = 'Preencha os campos obrigatórios: NF, Vendedor, Destinatário, UF, Transportadora e Emissão.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  const novoPedido = {
+    _rowId:         nextRowId++,
+    id:             nf,
+    vendedor:       vend,
+    valorNF,
+    valorC,
+    pct:            calcPct(valorNF, valorC),
+    transportadora: transp,
+    emissao:        emis,
+    destinatario:   dest,
+    uf,
+    municipio:      mun,
+    previsao:       prev ? isoToBr(prev) : '-',
+    entrega:        '',
+    dias:           0,
+    contato,
+    status,
+    obs
+  };
+
+  dataSET.push(novoPedido);
+  filteredData = [...dataSET];
+  buildFilterDropdowns();
+  executeDataRefresh();
+
+  closeManualModal();
+  showToast(`Pedido #${nf} incluído com sucesso!`);
+
+  // Navega para a aba de pedidos para o usuário ver o registro incluído
+  showTab('pedidos', document.querySelector('.sb-nav li:nth-child(2)'));
+}
 
 // ═══════════════════════════════════════════════
 // AUTENTICAÇÃO E GESTÃO DE USUÁRIOS
