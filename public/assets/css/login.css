@@ -149,4 +149,15 @@ h1 {
     color: var(--muted);
     margin-top: 18px;
     line-height: 1.5;
+    
+    & a {
+        text-decoration: none;
+        color: var(--blue);
+        font-weight: 600;
+        transition: color .2s;
+
+        &:hover {
+            color: var(--navy);
+        }
+    }
 }

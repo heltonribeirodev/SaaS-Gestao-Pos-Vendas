@@ -1222,7 +1222,7 @@ function saveManualPedido() {
 const USERS_KEY = 'fortecare_users';
 let currentUser = null;
 
-const TIPOS_USUARIO = ['Administrador', 'Gerente', 'Operador', 'Vendedor'];
+const TIPOS_USUARIO = ['Administrador','Gerente de Logística', 'Gerente', 'Operador', 'Vendedor'];
 
 function loadUsers() {
   try { return JSON.parse(localStorage.getItem(USERS_KEY)) || []; } catch { return []; }

@@ -12,7 +12,7 @@ const USERS_KEY = 'fortecare_users';
                 nome: 'Helton Ribeiro',
                 email: 'admin@fortecare.com',
                 senha: 'fortecare123',
-                setor: 'TI',
+                setor: 'Administrador',
                 tipo: 'Administrador'
             }]));
         }
