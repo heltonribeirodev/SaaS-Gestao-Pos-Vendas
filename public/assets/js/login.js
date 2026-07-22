@@ -1,68 +1,57 @@
-// Only login Screen
+// ── ForteCare — Login via API ────────────────────────────────────
 
-const USERS_KEY = 'fortecare_users';
-
-// Usuário padrão criado na primeira vez que o sistema é aberto
-(function seedDefaultUsers() {
-    try {
-        const users = JSON.parse(localStorage.getItem(USERS_KEY)) || [];
-        if (users.length === 0) {
-            localStorage.setItem(USERS_KEY, JSON.stringify([{
-                id: 1,
-                nome: 'Helton Ribeiro',
-                email: 'admin@fortecare.com',
-                senha: 'fortecare123',
-                setor: 'Administrador',
-                tipo: 'Administrador'
-            }]));
-        }
-    } catch { }
-})();
-
-// Enter no campo de senha aciona o login
 document.getElementById('senha').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') tentarLogin();
+  if (e.key === 'Enter') tentarLogin();
 });
 
-function tentarLogin() {
-    const email = document.getElementById('email').value.trim().toLowerCase();
-    const senha = document.getElementById('senha').value;
-    const errorEl = document.getElementById('error');
-    const btn = document.getElementById('btn-entrar');
+async function tentarLogin() {
+  const email   = document.getElementById('email').value.trim().toLowerCase();
+  const senha   = document.getElementById('senha').value;
+  const errorEl = document.getElementById('error');
+  const btn     = document.getElementById('btn-entrar');
 
-    errorEl.style.display = 'none';
+  errorEl.style.display = 'none';
 
-    if (!email || !senha) {
-        errorEl.innerText = 'Informe e-mail e senha.';
-        errorEl.style.display = 'block';
-        return;
+  if (!email || !senha) {
+    errorEl.innerText     = 'Informe e-mail e senha.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  btn.innerText = 'Entrando…';
+  btn.disabled  = true;
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method:      'POST',
+      credentials: 'include',
+      headers:     { 'Content-Type': 'application/json' },
+      body:        JSON.stringify({ email, senha })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      errorEl.innerText     = data.detail || 'E-mail ou senha incorretos.';
+      errorEl.style.display = 'block';
+      btn.innerText         = 'Entrar';
+      btn.disabled          = false;
+      document.getElementById('senha').value = '';
+      document.getElementById('senha').focus();
+      return;
     }
 
-    let users = [];
-    try { users = JSON.parse(localStorage.getItem(USERS_KEY)) || []; } catch { }
-
-    const user = users.find(u => u.email.toLowerCase() === email && u.senha === senha);
-
-    if (!user) {
-        errorEl.innerText = 'E-mail ou senha incorretos.';
-        errorEl.style.display = 'block';
-        document.getElementById('senha').value = '';
-        document.getElementById('senha').focus();
-        return;
-    }
-
-    // Salva sessão e redireciona para o app
-    try {
-        sessionStorage.setItem('fortecare_session', JSON.stringify({
-            id: user.id,
-            nome: user.nome,
-            email: user.email,
-            setor: user.setor,
-            tipo: user.tipo
-        }));
-    } catch { }
+    // Salva sessão para o app usar
+    sessionStorage.setItem('fortecare_session', JSON.stringify(data.usuario));
+    sessionStorage.setItem('fortecare_token',   data.token);
 
     btn.innerText = 'Carregando…';
-    btn.disabled = true;
     window.location.href = 'index.html';
+
+  } catch (err) {
+    errorEl.innerText     = 'Não foi possível conectar ao servidor.';
+    errorEl.style.display = 'block';
+    btn.innerText         = 'Entrar';
+    btn.disabled          = false;
+  }
 }

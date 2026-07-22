@@ -1617,3 +1617,21 @@ input[type="date"].datef::-webkit-calendar-picker-indicator {
 .period-tag .ptag-x:hover {
   opacity: 1;
 }
+/* ── TABELA DE-PARA (isola estilos da tabela de pedidos) ─────── */
+.table-depara tbody td:first-child {
+  color: var(--text) !important;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: default;
+}
+.table-depara tbody td:first-child:hover {
+  color: var(--text) !important;
+  text-decoration: none;
+}
+.table-depara thead th {
+  cursor: default;
+}
+.table-depara thead th:hover {
+  color: var(--muted);
+}

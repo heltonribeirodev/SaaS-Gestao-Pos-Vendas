@@ -369,6 +369,50 @@
           <div class="page-sub">Preferências do sistema e gestão da base de dados</div>
         </div>
       </div>
+      
+      <!-- NOVO: Card de DE PARA de Vendedores -->
+      <div class="t-card" id="sessao-de-para" style="padding:20px; margin-top:20px;">
+        <div style="margin-bottom: 16px;">
+          <h3 style="margin-top:0; margin-bottom:4px; font-size:16px; color:var(--text); font-weight:600;">Vincular Vendedores (DE PARA)</h3>
+          <div style="color:var(--muted); font-size:13px;">Ligue o nome exato que vem na planilha ao usuário do sistema.</div>
+        </div>
+        
+        <!-- Formulário de Vínculo -->
+        <div style="display: flex; gap: 12px; margin-bottom: 24px; align-items: flex-end; flex-wrap: wrap;">
+          <div class="login-field" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+            <label>Nome na Planilha</label>
+            <input type="text" id="dp-nome-planilha" placeholder="Ex: FERNANDA BUENO BISPO" style="width: 100%;">
+          </div>
+          <div class="login-field" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+            <label>Usuário do Sistema</label>
+            <select id="dp-usuario-id" class="fsel" style="width: 100%; height: 38px;">
+              <option value="">Carregando usuários...</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" style="height: 38px; padding: 0 16px;" onclick="salvarDePara()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:6px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Vincular
+          </button>
+        </div>
+
+        <!-- Tabela de Vínculos -->
+        <div class="t-scroll table-depara" style="border: 1px solid var(--border); border-radius: 6px;">
+          <table style="margin: 0;">
+            <thead>
+              <tr>
+                <th style="text-align: left;">Nome na Planilha</th>
+                <th style="text-align: left;">Usuário Vinculado</th>
+                <th style="width: 80px; text-align: center;">Ação</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-de-para">
+              <tr>
+                <td colspan="3" style="text-align: center; color: var(--muted); padding: 20px;">Carregando vínculos...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
       <div class="t-card" style="padding:20px;margin-top:16px" id="admin-users-card"></div>
     </div>
 
