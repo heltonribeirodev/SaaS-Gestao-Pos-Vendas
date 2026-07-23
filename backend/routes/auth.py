@@ -104,7 +104,7 @@ def enviar_email_recuperacao(destino: str, token: str):
     Este link é válido por 10 minutos. Se você não solicitou essa alteração, ignore este e-mail.
     
     Atenciosamente,
-    Equipe ForteCare
+    Equipe de TI ForteCare
     """
 
     msg = MIMEText(corpo_email)
