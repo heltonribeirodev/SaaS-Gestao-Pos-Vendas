@@ -12,22 +12,18 @@
   <link rel="icon" type="image/png" href="assets/images/ForteCare-F-colors.png">
 
   <link rel="stylesheet" href="assets/css/style.css">
+
+
+  <!-- Configurações para PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0056b3">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="ForteCare">
+  <link rel="apple-touch-icon" href="assets/images/ForteCare-F-colors.png">
 </head>
 
 <body>
-
-  <script>
-    // Guard de sessão: se não há sessão válida, volta para o login imediatamente
-    (function () {
-      try {
-        const s = sessionStorage.getItem('fortecare_session');
-        if (!s) { window.location.replace('login.html'); }
-      } catch {
-        window.location.replace('login.html');
-      }
-    })();
-  </script>
-
   <nav class="sidebar">
     <div class="sb-brand" data-tooltip="ForteCare — Pós Vendas">
       <div class="sb-logo">
@@ -257,7 +253,7 @@
               <option value="EM TRÂNSITO">🚚 Em Trânsito</option>
               <option value="EM ROTA">🔶 Em Rota</option>
               <option value="ENTREGUE">✅ Entregue</option>
-              <option value="RETIDO FISCALIZA">🛑 Retido Fiscalização</option>
+              <option value="RETIDO FISCALIZAÇÃO">🛑 Retido Fiscalização</option>
             </select>
             <select class="fsel" id="f-vend" onchange="applyFilters()">
               <option value="">Todos os Vendedores</option>
@@ -617,6 +613,7 @@
               <option value="EM TRÂNSITO">🚚 Em Trânsito</option>
               <option value="EM ROTA">🔶 Em Rota</option>
               <option value="ENTREGUE">✅ Entregue</option>
+              <option value="RETIDO FISCALIZAÇÃO">🛑 Retido Fiscalização</option>
             </select>
           </div>
           <div class="login-field">
@@ -645,6 +642,16 @@
     <div class="toast" id="toast"></div>
 
     <script src="assets/JS/script.js"></script>
+
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('PWA Service Worker registrado com sucesso:', reg.scope))
+            .catch(err => console.error('Erro ao registrar Service Worker:', err));
+        });
+      }
+    </script>
 </body>
 
 </html>
