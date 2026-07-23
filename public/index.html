@@ -1,557 +1,650 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ForteCare — Sistema Pós Vendas</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="icon" type="image/png" href="assets/images/ForteCare-F-colors.png">
-    
-    <link rel="stylesheet" href="assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ForteCare — Sistema Pós Vendas</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link rel="icon" type="image/png" href="assets/images/ForteCare-F-colors.png">
+
+  <link rel="stylesheet" href="assets/css/style.css">
 </head>
+
 <body>
 
-<script>
-  // Guard de sessão: se não há sessão válida, volta para o login imediatamente
-  (function() {
-    try {
-      const s = sessionStorage.getItem('fortecare_session');
-      if (!s) { window.location.replace('login.html'); }
-    } catch {
-      window.location.replace('login.html');
-    }
-  })();
-</script>
+  <script>
+    // Guard de sessão: se não há sessão válida, volta para o login imediatamente
+    (function () {
+      try {
+        const s = sessionStorage.getItem('fortecare_session');
+        if (!s) { window.location.replace('login.html'); }
+      } catch {
+        window.location.replace('login.html');
+      }
+    })();
+  </script>
 
-<nav class="sidebar">
-  <div class="sb-brand" data-tooltip="ForteCare — Pós Vendas">
-    <div class="sb-logo">
-      <img src="assets/images/ForteCare-F-white.png" alt="ForteCare" onerror="this.style.display='none'; this.parentElement.classList.add('sb-logo-fallback')">
-    </div>
-    <span class="sb-company">ForteCare</span>
-  </div>
-  <div class="sb-sep"></div>
-  <ul class="sb-nav">
-    <li class="active" onclick="showTab('dashboard', this)" data-tooltip="Dashboard">
-      <span class="nav-ic">📊</span><span class="nav-label">Dashboard</span>
-    </li>
-    <li onclick="showTab('pedidos', this)" data-tooltip="Pedidos">
-      <span class="nav-ic">📦</span><span class="nav-label">Pedidos</span>
-    </li>
-    <li onclick="showTab('transportadoras', this)" data-tooltip="Transportadoras">
-      <span class="nav-ic">🚚</span><span class="nav-label">Transportadoras</span>
-    </li>
-    <li onclick="showTab('vendedores', this)" data-tooltip="Vendedores">
-      <span class="nav-ic">👤</span><span class="nav-label">Vendedores</span>
-    </li>
-    <li onclick="showTab('administracao', this)" data-tooltip="Administração">
-      <span class="nav-ic">⚙️</span><span class="nav-label">Administração</span>
-    </li>
-  </ul>
-  <div class="sb-footer">
-    <div class="user-pill" id="user-pill" data-tooltip="Helton Ribeiro — Administrador" onclick="logout()">
-      <div class="user-av" id="user-av">HR</div>
-      <div>
-        <span class="user-name" id="user-name">Helton Ribeiro</span>
-        <span class="user-role" id="user-role">Administrador</span>
+  <nav class="sidebar">
+    <div class="sb-brand" data-tooltip="ForteCare — Pós Vendas">
+      <div class="sb-logo">
+        <img src="assets/images/ForteCare-F-white.png" alt="ForteCare"
+          onerror="this.style.display='none'; this.parentElement.classList.add('sb-logo-fallback')">
       </div>
+      <span class="sb-company">ForteCare</span>
     </div>
-  </div>
-</nav>
-
-<div class="main">
-  <header class="topbar">
-    <div class="topbar-left">
-      <div class="topbar-title" id="top-title">Dashboard</div>
-      <div class="topbar-hint">ForteCare · Controle de Expedições e Rastreamento</div>
-    </div>
-    <div class="topbar-right">
-      <button class="btn btn-ghost" onclick="exportCSV()">📥 Exportar CSV</button>
-      <button class="btn btn-ghost" onclick="openManualModal()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Incluir Manual
-      </button>
-      <button class="btn btn-primary" onclick="openModal()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        Importar Planilha
-      </button>
-    </div>
-  </header>
-
-  <div class="content">
-
-    <div id="tab-dashboard" class="tab active">
-      <div class="page-header">
+    <div class="sb-sep"></div>
+    <ul class="sb-nav">
+      <li class="active" onclick="showTab('dashboard', this)" data-tooltip="Dashboard">
+        <span class="nav-ic">📊</span><span class="nav-label">Dashboard</span>
+      </li>
+      <li onclick="showTab('pedidos', this)" data-tooltip="Pedidos">
+        <span class="nav-ic">📦</span><span class="nav-label">Pedidos</span>
+      </li>
+      <li onclick="showTab('transportadoras', this)" data-tooltip="Transportadoras">
+        <span class="nav-ic">🚚</span><span class="nav-label">Transportadoras</span>
+      </li>
+      <li onclick="showTab('vendedores', this)" data-tooltip="Vendedores">
+        <span class="nav-ic">👤</span><span class="nav-label">Vendedores</span>
+      </li>
+      <li onclick="showTab('administracao', this)" data-tooltip="Administração">
+        <span class="nav-ic">⚙️</span><span class="nav-label">Administração</span>
+      </li>
+    </ul>
+    <div class="sb-footer">
+      <div class="user-pill" id="user-pill" data-tooltip="Helton Ribeiro — Administrador" onclick="logout()">
+        <div class="user-av" id="user-av">HR</div>
         <div>
-          <div class="page-title">Visão Geral</div>
-          <div class="page-sub">Monitoramento em tempo real das expedições</div>
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-          <span class="chip-date" id="chip-date">Todos os períodos</span>
-          <span class="chip-last-emissao" id="chip-last-emissao" style="display:none"></span>
-        </div>
-      </div>
-
-      <div class="alert-grid">
-        <div class="alert-card ac-hoje" id="card-hoje" onclick="goToUrgent('hoje')">
-          <div class="alert-ic">📅</div>
-          <div class="alert-txt">
-            <div class="alert-val" id="kpi-hoje">–</div>
-            <div class="alert-label">A Entregar Hoje</div>
-          </div>
-          <div class="alert-arrow">Ver pedidos →</div>
-        </div>
-        <div class="alert-card ac-atraso" id="card-atraso" onclick="goToUrgent('atraso')">
-          <div class="alert-ic">⚠️</div>
-          <div class="alert-txt">
-            <div class="alert-val" id="kpi-atraso">–</div>
-            <div class="alert-label">Notas em Atraso</div>
-          </div>
-          <div class="alert-arrow">Ver pedidos →</div>
-        </div>
-      </div>
-
-      <div class="kpi-grid">
-        <div class="kpi k-blue">
-          <div class="kpi-top">
-            <div class="kpi-label">Total de Pedidos</div>
-            <div class="kpi-ic ib">📦</div>
-          </div>
-          <div class="kpi-val" id="kpi-total">–</div>
-          <div class="kpi-detail">Emitidos no mês</div>
-        </div>
-        <div class="kpi k-teal">
-          <div class="kpi-top">
-            <div class="kpi-label">Entregues</div>
-            <div class="kpi-ic it">✅</div>
-          </div>
-          <div class="kpi-val" id="kpi-ent">–</div>
-          <div class="kpi-detail"><span class="kpi-pct" id="kpi-ent-pct">–</span> do total</div>
-        </div>
-        <div class="kpi k-amber">
-          <div class="kpi-top">
-            <div class="kpi-label">Em Trânsito</div>
-            <div class="kpi-ic ia">🚚</div>
-          </div>
-          <div class="kpi-val" id="kpi-trans">–</div>
-          <div class="kpi-detail">Aguardando entrega</div>
-        </div>
-        <div class="kpi k-red">
-          <div class="kpi-top">
-            <div class="kpi-label">Entregas Atrasadas</div>
-            <div class="kpi-ic ir">⏰</div>
-          </div>
-          <div class="kpi-val" id="kpi-atrasos-total">–</div>
-          <div class="kpi-detail">Vencidas + entregues fora do prazo</div>
-        </div>
-        <div class="kpi k-sla" id="card-sla">
-          <div class="kpi-top">
-            <div class="kpi-label">Nível de Serviço</div>
-            <div class="kpi-ic is">🎯</div>
-          </div>
-          <div class="kpi-val" id="kpi-sla">–</div>
-          <div class="kpi-detail">% entregue dentro do prazo</div>
-        </div>
-        <div class="kpi k-blue">
-          <div class="kpi-top">
-            <div class="kpi-label">KPI Frete</div>
-            <div class="kpi-ic ib">🚛</div>
-          </div>
-          <div class="kpi-val" id="kpi-frete">–</div>
-          <div class="kpi-detail">% do frete sobre Valor NF</div>
-        </div>
-      </div>
-
-      <div class="charts-row">
-        <div class="chart-card">
-          <div class="chart-title">Status dos Pedidos</div>
-          <div class="chart-box"><canvas id="c-status"></canvas></div>
-          <div class="status-legend" id="status-legend"></div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-title">Pedidos por Vendedor</div>
-          <div class="chart-box"><canvas id="c-vend"></canvas></div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-title">Por Transportadora</div>
-          <div class="chart-box"><canvas id="c-transp"></canvas></div>
-        </div>
-      </div>
-
-      <div class="t-card">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-          <div class="chart-title" style="margin:0">Últimos Pedidos</div>
-          <button class="btn btn-ghost" style="font-size:12px" onclick="showTab('pedidos', document.querySelector('.sb-nav li:nth-child(2)'))">Ver todos →</button>
-        </div>
-        <div class="t-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>#NF</th><th>Vendedor</th><th>Destinatário</th>
-                <th>UF</th><th>Transportadora</th><th>Valor NF</th>
-                <th>Previsão</th><th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="r-body"></tbody>
-          </table>
+          <span class="user-name" id="user-name">Helton Ribeiro</span>
+          <span class="user-role" id="user-role">Administrador</span>
         </div>
       </div>
     </div>
+  </nav>
 
-    <div id="tab-pedidos" class="tab">
-      <div class="page-header">
-        <div>
-          <div class="page-title">Pedidos</div>
-          <div class="page-sub" id="p-sub">Todos os Pedidos</div>
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title" id="top-title">Dashboard</div>
+        <div class="topbar-hint">ForteCare · Controle de Expedições e Rastreamento</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost" onclick="exportCSV()">📥 Exportar CSV</button>
+        <button class="btn btn-ghost" onclick="openManualModal()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          Incluir Manual
+        </button>
+        <button class="btn btn-primary" onclick="openModal()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          Importar Planilha
+        </button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <div id="tab-dashboard" class="tab active">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Visão Geral</div>
+            <div class="page-sub">Monitoramento em tempo real das expedições</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            <span class="chip-date" id="chip-date">Todos os períodos</span>
+            <span class="chip-last-emissao" id="chip-last-emissao" style="display:none"></span>
+          </div>
+        </div>
+
+        <div class="alert-grid">
+          <!-- Card 1: A Entregar Hoje -->
+          <div class="alert-card ac-hoje" id="card-hoje" onclick="goToUrgent('hoje')">
+            <div class="alert-ic">📅</div>
+            <div class="alert-txt">
+              <div class="alert-val" id="kpi-hoje">–</div>
+              <div class="alert-label">Prazo de Entrega Para Hoje</div>
+            </div>
+            <div class="alert-arrow">Ver pedidos →</div>
+          </div>
+
+          <!-- Card 2: Notas em Atraso -->
+          <div class="alert-card ac-atraso" id="card-atraso" onclick="goToUrgent('atraso')">
+            <div class="alert-ic">⚠️</div>
+            <div class="alert-txt">
+              <div class="alert-val" id="kpi-atraso">–</div>
+              <div class="alert-label">Notas em Atraso</div>
+            </div>
+            <div class="alert-arrow">Ver pedidos →</div>
+          </div>
+
+          <!-- Card 3: Em Rota de Entrega (Novo) -->
+          <div class="alert-card ac-rota is-alert" onclick="goToUrgent('rota')">
+            <div class="alert-ic">🚚</div>
+            <div class="alert-txt">
+              <div class="alert-val" id="qtd-rota">-</div>
+              <div class="alert-label">Em Rota de Entrega </div>
+            </div>
+            <div class="alert-arrow">Ver pedidos →</div>
+          </div>
+
+          <!-- Card Retido Fiscalização -->
+          <div class="alert-card ac-retido is-alert" onclick="goToUrgent('retido')">
+            <div class="alert-ic">🛑</div>
+            <div class="alert-txt">
+              <div class="alert-val" id="qtd-retido">-</div>
+              <div class="alert-label">Retido na Fiscalização</div>
+            </div>
+            <div class="alert-arrow">Ver pedidos →</div>
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi k-blue">
+            <div class="kpi-top">
+              <div class="kpi-label">Total de Pedidos</div>
+              <div class="kpi-ic ib">📦</div>
+            </div>
+            <div class="kpi-val" id="kpi-total">–</div>
+            <div class="kpi-detail">Emitidos no mês</div>
+          </div>
+          <div class="kpi k-teal">
+            <div class="kpi-top">
+              <div class="kpi-label">Entregues</div>
+              <div class="kpi-ic it">✅</div>
+            </div>
+            <div class="kpi-val" id="kpi-ent">–</div>
+            <div class="kpi-detail"><span class="kpi-pct" id="kpi-ent-pct">–</span> do total</div>
+          </div>
+          <div class="kpi k-amber">
+            <div class="kpi-top">
+              <div class="kpi-label">Em Trânsito</div>
+              <div class="kpi-ic ia">🚚</div>
+            </div>
+            <div class="kpi-val" id="kpi-trans">–</div>
+            <div class="kpi-detail">Aguardando entrega</div>
+          </div>
+          <div class="kpi k-red">
+            <div class="kpi-top">
+              <div class="kpi-label">Entregas Atrasadas</div>
+              <div class="kpi-ic ir">⏰</div>
+            </div>
+            <div class="kpi-val" id="kpi-atrasos-total">–</div>
+            <div class="kpi-detail">Entregues fora do prazo</div>
+          </div>
+          <div class="kpi k-sla" id="card-sla">
+            <div class="kpi-top">
+              <div class="kpi-label">Nível de Serviço</div>
+              <div class="kpi-ic is">🎯</div>
+            </div>
+            <div class="kpi-val" id="kpi-sla">–</div>
+            <div class="kpi-detail">% entregue dentro do prazo</div>
+          </div>
+          <div class="kpi k-blue">
+            <div class="kpi-top">
+              <div class="kpi-label">KPI Frete</div>
+              <div class="kpi-ic ib">🚛</div>
+            </div>
+            <div class="kpi-val" id="kpi-frete">–</div>
+            <div class="kpi-detail">% do frete sobre Valor NF</div>
+          </div>
+        </div>
+
+        <div class="charts-row">
+          <div class="chart-card">
+            <div class="chart-title">Status dos Pedidos</div>
+            <div class="chart-box"><canvas id="c-status"></canvas></div>
+            <div class="status-legend" id="status-legend"></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Pedidos por Vendedor</div>
+            <div class="chart-box"><canvas id="c-vend"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">Por Transportadora</div>
+            <div class="chart-box"><canvas id="c-transp"></canvas></div>
+          </div>
+        </div>
+
+        <div class="t-card">
+          <div
+            style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+            <div class="chart-title" style="margin:0">Últimos Pedidos</div>
+            <button class="btn btn-ghost" style="font-size:12px"
+              onclick="showTab('pedidos', document.querySelector('.sb-nav li:nth-child(2)'))">Ver todos →</button>
+          </div>
+          <div class="t-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>#NF</th>
+                  <th>Vendedor</th>
+                  <th>Destinatário</th>
+                  <th>UF</th>
+                  <th>Transportadora</th>
+                  <th>Valor NF</th>
+                  <th>Previsão</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="r-body"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      <div class="filters-wrap" style="flex-direction:column;align-items:stretch">
-        <div class="frow">
-          <span class="f-label">Filtros:</span>
-          <select class="fsel" id="f-status" onchange="applyFilters()">
-            <option value="">Todos os Status</option>
-            <option value="ENTREGUE">✅ Entregue</option>
-            <option value="EM TRÂNSITO">🚚 Em Trânsito</option>
-            <option value="EM ROTA">🔶 Em Rota</option>
-          </select>
-          <select class="fsel" id="f-vend" onchange="applyFilters()">
-            <option value="">Todos os Vendedores</option>
-          </select>
-          <select class="fsel" id="f-transp" onchange="applyFilters()">
-            <option value="">Todas as Transportadoras</option>
-          </select>
-          <select class="fsel" id="f-uf" onchange="applyFilters()">
-            <option value="">Todos os Estados</option>
-          </select>
-          <div class="fsearch">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--muted);flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input id="f-q" type="text" placeholder="Filtro por NF" oninput="applyFilters()">
+      <div id="tab-pedidos" class="tab">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Pedidos</div>
+            <div class="page-sub" id="p-sub">Todos os Pedidos</div>
           </div>
-          <button class="btn btn-ghost" style="font-size:12px" onclick="clearFilters()">✕ Limpar</button>
         </div>
 
-        <div class="f-divider"></div>
-
-        <div class="frow" style="align-items:center">
-          <span class="f-label" style="flex-shrink:0">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle;margin-right:3px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            Emissão:
-          </span>
-
-          <div class="qchips">
-            <button class="qchip" onclick="setPreset('hoje',this)">Hoje</button>
-            <button class="qchip" onclick="setPreset('7d',this)">7 dias</button>
-            <button class="qchip" onclick="setPreset('semana',this)">Esta semana</button>
-            <button class="qchip" onclick="setPreset('mes',this)">Este mês</button>
-            <button class="qchip" onclick="setPreset('mesant',this)">Mês anterior</button>
+        <div class="filters-wrap" style="flex-direction:column;align-items:stretch">
+          <div class="frow">
+            <span class="f-label">Filtros:</span>
+            <select class="fsel" id="f-status" onchange="applyFilters()">
+              <option value="">Todos os Status</option>
+              <option value="EM TRÂNSITO">🚚 Em Trânsito</option>
+              <option value="EM ROTA">🔶 Em Rota</option>
+              <option value="ENTREGUE">✅ Entregue</option>
+              <option value="RETIDO FISCALIZA">🛑 Retido Fiscalização</option>
+            </select>
+            <select class="fsel" id="f-vend" onchange="applyFilters()">
+              <option value="">Todos os Vendedores</option>
+            </select>
+            <select class="fsel" id="f-transp" onchange="applyFilters()">
+              <option value="">Todas as Transportadoras</option>
+            </select>
+            <select class="fsel" id="f-uf" onchange="applyFilters()">
+              <option value="">Todos os Estados</option>
+            </select>
+            <div class="fsearch">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                style="color:var(--muted);flex-shrink:0">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+              <input id="f-q" type="text" placeholder="Filtro por NF" oninput="applyFilters()">
+            </div>
+            <button class="btn btn-ghost" style="font-size:12px" onclick="clearFilters()">✕ Limpar</button>
           </div>
 
-          <div class="dinput-wrap">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted);flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            <input type="date" class="datef" id="f-dfrom" onchange="onDateInput()" title="Data inicial de emissão">
-          </div>
-          <span class="dr-sep">→</span>
-          <div class="dinput-wrap">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted);flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            <input type="date" class="datef" id="f-dto" onchange="onDateInput()" title="Data final de emissão">
-          </div>
+          <div class="f-divider"></div>
 
-          <span class="period-tag" id="period-tag" style="display:none">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            <span class="ptag-txt"></span>
-            <span class="ptag-x" onclick="clearDateFilter()">
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <div class="frow" style="align-items:center">
+            <span class="f-label" style="flex-shrink:0">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                style="vertical-align:middle;margin-right:3px">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              Emissão:
             </span>
-          </span>
 
-          <span class="period-tag tag-urgency" id="urgency-tag" style="display:none">
-            ⚠️ <span class="ptag-txt"></span>
-            <span class="ptag-x" onclick="clearUrgencyFilter()">
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <div class="qchips">
+              <button class="qchip" onclick="setPreset('hoje',this)">Hoje</button>
+              <button class="qchip" onclick="setPreset('7d',this)">7 dias</button>
+              <button class="qchip" onclick="setPreset('semana',this)">Esta semana</button>
+              <button class="qchip" onclick="setPreset('mes',this)">Este mês</button>
+              <button class="qchip" onclick="setPreset('mesant',this)">Mês anterior</button>
+            </div>
+
+            <div class="dinput-wrap">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                style="color:var(--muted);flex-shrink:0">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              <input type="date" class="datef" id="f-dfrom" onchange="onDateInput()" title="Data inicial de emissão">
+            </div>
+            <span class="dr-sep">→</span>
+            <div class="dinput-wrap">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                style="color:var(--muted);flex-shrink:0">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              <input type="date" class="datef" id="f-dto" onchange="onDateInput()" title="Data final de emissão">
+            </div>
+
+            <span class="period-tag" id="period-tag" style="display:none">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              <span class="ptag-txt"></span>
+              <span class="ptag-x" onclick="clearDateFilter()">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </span>
             </span>
-          </span>
 
-          <button class="btn btn-ghost" style="font-size:11.5px;padding:6px 11px;margin-left:auto" onclick="clearDateFilter()">✕ Limpar data</button>
+            <span class="period-tag tag-urgency" id="urgency-tag" style="display:none">
+              ⚠️ <span class="ptag-txt"></span>
+              <span class="ptag-x" onclick="clearUrgencyFilter()">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </span>
+            </span>
+          </div>
+        </div>
+
+        <div class="t-card">
+          <div class="t-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th onclick="sortBy('id')">#NF ⇅</th>
+                  <th onclick="sortBy('vendedor')">Vendedor ⇅</th>
+                  <th>Destinatário</th>
+                  <th onclick="sortBy('uf')">UF ⇅</th>
+                  <th>Município</th>
+                  <th>Transportadora</th>
+                  <th onclick="sortBy('emissao')">Emissão ⇅</th>
+                  <th onclick="sortBy('valorNF')">Valor NF ⇅</th>
+                  <th>Previsão</th>
+                  <th onclick="sortBy('entrega')">Entregue em ⇅</th>
+                  <th>Contato</th>
+                  <th onclick="sortBy('valorC')">Valor Frete ⇅</th>
+                  <th>Status</th>
+                  <th>Obs</th>
+                  <th>Obs Rastreio</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="p-body"></tbody>
+            </table>
+          </div>
+          <div class="t-footer">
+            <span class="t-count" id="t-count">–</span>
+            <div class="pag" id="pag"></div>
+          </div>
         </div>
       </div>
 
-      <div class="t-card">
-        <div class="t-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th onclick="sortBy('id')">#NF ⇅</th>
-                <th onclick="sortBy('vendedor')">Vendedor ⇅</th>
-                <th>Destinatário</th>
-                <th onclick="sortBy('uf')">UF ⇅</th>
-                <th>Município</th>
-                <th>Transportadora</th>
-                <th onclick="sortBy('emissao')">Emissão ⇅</th>
-                <th onclick="sortBy('valorNF')">Valor NF ⇅</th>
-                <th>Previsão</th>
-                <th onclick="sortBy('entrega')">Entregue em ⇅</th>
-                <th>Contato</th>
-                <th onclick="sortBy('valorC')">Valor Frete ⇅</th>
-                <th>Status</th>
-                <th>Obs</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody id="p-body"></tbody>
-          </table>
+      <div id="tab-transportadoras" class="tab">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Transportadoras</div>
+            <div class="page-sub">Desempenho por operadora logística</div>
+          </div>
         </div>
-        <div class="t-footer">
-          <span class="t-count" id="t-count">–</span>
-          <div class="pag" id="pag"></div>
+
+        <!-- Novo: Filtro de Data Transportadoras -->
+        <div class="filters-wrap" style="margin-bottom: 20px;">
+          <div class="frow">
+            <span class="f-label">Emissão:</span>
+            <div class="dinput-wrap">
+              <input type="date" class="datef" id="f-transp-from" onchange="renderTransportadoras()"
+                title="Data inicial">
+            </div>
+            <span class="dr-sep">→</span>
+            <div class="dinput-wrap">
+              <input type="date" class="datef" id="f-transp-to" onchange="renderTransportadoras()" title="Data final">
+            </div>
+            <button class="btn btn-ghost" style="font-size:11.5px;padding:6px 11px;margin-left:auto"
+              onclick="document.getElementById('f-transp-from').value=''; document.getElementById('f-transp-to').value=''; renderTransportadoras()">✕
+              Limpar</button>
+          </div>
+        </div>
+
+        <div class="perf-grid" id="transp-grid"></div>
+      </div>
+
+      <div id="tab-vendedores" class="tab">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Vendedores</div>
+            <div class="page-sub">Desempenho individual da equipe comercial</div>
+          </div>
+        </div>
+
+        <!-- Novo: Filtro de Data Vendedores -->
+        <div class="filters-wrap" style="margin-bottom: 20px;">
+          <div class="frow">
+            <span class="f-label">Emissão:</span>
+            <div class="dinput-wrap">
+              <input type="date" class="datef" id="f-vend-from" onchange="renderVendedores()" title="Data inicial">
+            </div>
+            <span class="dr-sep">→</span>
+            <div class="dinput-wrap">
+              <input type="date" class="datef" id="f-vend-to" onchange="renderVendedores()" title="Data final">
+            </div>
+            <button class="btn btn-ghost" style="font-size:11.5px;padding:6px 11px;margin-left:auto"
+              onclick="document.getElementById('f-vend-from').value=''; document.getElementById('f-vend-to').value=''; renderVendedores()">✕
+              Limpar</button>
+          </div>
+        </div>
+
+        <div class="perf-grid" id="vend-grid"></div>
+      </div>
+
+      <div id="tab-administracao" class="tab">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Administração</div>
+            <div class="page-sub">Preferências do sistema e gestão da base de dados</div>
+          </div>
+        </div>
+
+        <!-- NOVO: Card de DE PARA de Vendedores -->
+        <div class="t-card" id="sessao-de-para" style="padding:20px; margin-top:20px;">
+          <div style="margin-bottom: 16px;">
+            <h3 style="margin-top:0; margin-bottom:4px; font-size:16px; color:var(--text); font-weight:600;">Vincular
+              Vendedores (DE PARA)</h3>
+            <div style="color:var(--muted); font-size:13px;">Ligue o nome exato que vem na planilha ao usuário do
+              sistema.</div>
+          </div>
+
+          <!-- Formulário de Vínculo -->
+          <div style="display: flex; gap: 12px; margin-bottom: 24px; align-items: flex-end; flex-wrap: wrap;">
+            <div class="login-field" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+              <label>Nome na Planilha</label>
+              <input type="text" id="dp-nome-planilha" placeholder="Ex: FERNANDA RODRIGUES" style="width: 100%;">
+            </div>
+            <div class="login-field" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+              <label>Usuário do Sistema</label>
+              <select id="dp-usuario-id" class="fsel" style="width: 100%; height: 38px;">
+                <option value="">Carregando usuários...</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" style="height: 38px; padding: 0 16px;" onclick="salvarDePara()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                style="margin-right:6px">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Vincular
+            </button>
+          </div>
+
+          <!-- Tabela de Vínculos -->
+          <div class="t-scroll table-depara" style="border: 1px solid var(--border); border-radius: 6px;">
+            <table style="margin: 0;">
+              <thead>
+                <tr>
+                  <th style="text-align: left;">Nome na Planilha</th>
+                  <th style="text-align: left;">Usuário Vinculado</th>
+                  <th style="width: 80px; text-align: center;">Ação</th>
+                </tr>
+              </thead>
+              <tbody id="tabela-de-para">
+                <tr>
+                  <td colspan="3" style="text-align: center; color: var(--muted); padding: 20px;">Carregando vínculos...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="t-card" style="padding:20px;margin-top:16px" id="admin-users-card"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="overlay" id="user-overlay">
+      <div class="modal-box">
+        <div class="modal-h" id="user-modal-title">Novo Usuário</div>
+        <div class="modal-sh">Preencha os dados para criar o acesso ao sistema</div>
+
+        <div class="login-field">
+          <label>Nome completo</label>
+          <input type="text" id="u-nome" placeholder="Ex: Ana Souza">
+        </div>
+        <div class="login-field">
+          <label>E-mail</label>
+          <input type="email" id="u-email" placeholder="ana@fortecare.com">
+        </div>
+        <div class="login-field">
+          <label>Senha <span id="u-senha-hint" style="font-weight:400;color:var(--muted);font-size:11px"></span></label>
+          <input type="password" id="u-senha" placeholder="Mínimo 6 caracteres">
+        </div>
+        <div class="login-field">
+          <label>Setor</label>
+          <input type="text" id="u-setor" placeholder="Ex: Pós Vendas">
+        </div>
+        <div class="login-field">
+          <label>Tipo de Usuário</label>
+          <select class="fsel" id="u-tipo" style="width:100%">
+            <option value="Administrador">Administrador</option>
+            <option value="Gerente-logistica">Gerente de Logística</option>
+            <option value="Gerente">Gerente</option>
+            <option value="Operador">Operador</option>
+            <option value="Vendedor">Vendedor</option>
+          </select>
+        </div>
+
+        <div class="login-error" id="user-modal-error" style="display:none"></div>
+        <input type="hidden" id="u-edit-id">
+
+        <div class="modal-acts">
+          <button class="btn btn-ghost" onclick="closeUserModal()">Cancelar</button>
+          <button class="btn btn-primary" onclick="saveUser()">Salvar</button>
         </div>
       </div>
     </div>
 
-    <div id="tab-transportadoras" class="tab">
-      <div class="page-header">
-        <div>
-          <div class="page-title">Transportadoras</div>
-          <div class="page-sub">Desempenho por operadora logística</div>
+    <div class="overlay" id="overlay">
+      <div class="modal-box">
+        <div class="modal-h">Importar Arquivo</div>
+        <div class="modal-sh">Importe a planilha PÓS VENDAS (.xlsx, .xls ou .csv) para atualizar os dados</div>
+        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('f-file').click()">
+          <div class="dz-ic">📊</div>
+          <div class="dz-txt">Arraste aqui ou clique para selecionar</div>
+          <div class="dz-hint">Formatos aceitos: .xlsx, .xls, .csv</div>
+        </div>
+        <input type="file" id="f-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(event)">
+        <div class="import-ok" id="import-ok"></div>
+        <div class="modal-acts">
+          <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
         </div>
       </div>
-      
-      <!-- Novo: Filtro de Data Transportadoras -->
-      <div class="filters-wrap" style="margin-bottom: 20px;">
-        <div class="frow">
-          <span class="f-label">Emissão:</span>
-          <div class="dinput-wrap">
-            <input type="date" class="datef" id="f-transp-from" onchange="renderTransportadoras()" title="Data inicial">
-          </div>
-          <span class="dr-sep">→</span>
-          <div class="dinput-wrap">
-            <input type="date" class="datef" id="f-transp-to" onchange="renderTransportadoras()" title="Data final">
-          </div>
-          <button class="btn btn-ghost" style="font-size:11.5px;padding:6px 11px;margin-left:auto" onclick="document.getElementById('f-transp-from').value=''; document.getElementById('f-transp-to').value=''; renderTransportadoras()">✕ Limpar</button>
-        </div>
-      </div>
-
-      <div class="perf-grid" id="transp-grid"></div>
     </div>
 
-    <div id="tab-vendedores" class="tab">
-      <div class="page-header">
-        <div>
-          <div class="page-title">Vendedores</div>
-          <div class="page-sub">Desempenho individual da equipe comercial</div>
-        </div>
-      </div>
-      
-      <!-- Novo: Filtro de Data Vendedores -->
-      <div class="filters-wrap" style="margin-bottom: 20px;">
-        <div class="frow">
-          <span class="f-label">Emissão:</span>
-          <div class="dinput-wrap">
-            <input type="date" class="datef" id="f-vend-from" onchange="renderVendedores()" title="Data inicial">
-          </div>
-          <span class="dr-sep">→</span>
-          <div class="dinput-wrap">
-            <input type="date" class="datef" id="f-vend-to" onchange="renderVendedores()" title="Data final">
-          </div>
-          <button class="btn btn-ghost" style="font-size:11.5px;padding:6px 11px;margin-left:auto" onclick="document.getElementById('f-vend-from').value=''; document.getElementById('f-vend-to').value=''; renderVendedores()">✕ Limpar</button>
-        </div>
-      </div>
+    <div class="overlay" id="manual-overlay">
+      <div class="modal-box"
+        style="max-width:580px;width:100%;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column">
+        <div class="modal-h" id="manual-modal-title">Incluir Pedido Manual</div>
+        <div class="modal-sh">Preencha os dados do pedido para incluí-lo na base</div>
 
-      <div class="perf-grid" id="vend-grid"></div>
-    </div>
-
-    <div id="tab-administracao" class="tab">
-      <div class="page-header">
-        <div>
-          <div class="page-title">Administração</div>
-          <div class="page-sub">Preferências do sistema e gestão da base de dados</div>
-        </div>
-      </div>
-      
-      <!-- NOVO: Card de DE PARA de Vendedores -->
-      <div class="t-card" id="sessao-de-para" style="padding:20px; margin-top:20px;">
-        <div style="margin-bottom: 16px;">
-          <h3 style="margin-top:0; margin-bottom:4px; font-size:16px; color:var(--text); font-weight:600;">Vincular Vendedores (DE PARA)</h3>
-          <div style="color:var(--muted); font-size:13px;">Ligue o nome exato que vem na planilha ao usuário do sistema.</div>
-        </div>
-        
-        <!-- Formulário de Vínculo -->
-        <div style="display: flex; gap: 12px; margin-bottom: 24px; align-items: flex-end; flex-wrap: wrap;">
-          <div class="login-field" style="margin-bottom: 0; flex: 1; min-width: 200px;">
-            <label>Nome na Planilha</label>
-            <input type="text" id="dp-nome-planilha" placeholder="Ex: FERNANDA BUENO BISPO" style="width: 100%;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="login-field">
+            <label>Nº da NF <span style="color:#EF4444">*</span></label>
+            <input type="text" id="m-nf" placeholder="Ex: 83001" required>
           </div>
-          <div class="login-field" style="margin-bottom: 0; flex: 1; min-width: 200px;">
-            <label>Usuário do Sistema</label>
-            <select id="dp-usuario-id" class="fsel" style="width: 100%; height: 38px;">
-              <option value="">Carregando usuários...</option>
+          <div class="login-field">
+            <label>Vendedor <span style="color:#EF4444">*</span></label>
+            <input type="text" id="m-vendedor" placeholder="Ex: ANA SOUZA">
+          </div>
+          <div class="login-field" style="grid-column:span 2">
+            <label>Destinatário <span style="color:#EF4444">*</span></label>
+            <input type="text" id="m-destinatario" placeholder="Ex: HOSPITAL XYZ LTDA" required>
+          </div>
+          <div class="login-field">
+            <label>UF <span style="color:#EF4444">*</span></label>
+            <input type="text" id="m-uf" placeholder="Ex: SP" maxlength="2" style="text-transform:uppercase">
+          </div>
+          <div class="login-field">
+            <label>Município <span style="color:#EF4444">*</span></label>
+            <input type="text" id="m-municipio" placeholder="Ex: São Paulo" required>
+          </div>
+          <div class="login-field" style="grid-column:span 2">
+            <label>Transportadora <span style="color:#EF4444">*</span></label>
+            <input type="text" id="m-transportadora" placeholder="Ex: BRASPRESS" required>
+          </div>
+          <div class="login-field">
+            <label>Data de Emissão <span style="color:#EF4444">*</span></label>
+            <input type="date" id="m-emissao" required>
+          </div>
+          <div class="login-field">
+            <label>Previsão de Entrega <span style="color:#EF4444">*</span></label>
+            <input type="date" id="m-previsao" required>
+          </div>
+          <div class="login-field">
+            <label>Valor NF (R$) <span style="color:#EF4444">*</span></label>
+            <input type="number" step="0.01" min="0" id="m-valornf" placeholder="0,00" required>
+          </div>
+          <div class="login-field">
+            <label>Valor Frete (R$) <span style="color:#EF4444">*</span></label>
+            <input type="number" step="0.01" min="0" id="m-valorfrete" placeholder="0,00" required>
+          </div>
+          <div class="login-field">
+            <label>Status</label>
+            <select id="m-status" class="fsel" style="width:100%">
+              <option value="EM TRÂNSITO">🚚 Em Trânsito</option>
+              <option value="EM ROTA">🔶 Em Rota</option>
+              <option value="ENTREGUE">✅ Entregue</option>
             </select>
           </div>
-          <button class="btn btn-primary" style="height: 38px; padding: 0 16px;" onclick="salvarDePara()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:6px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Vincular
-          </button>
+          <div class="login-field">
+            <label>Contato</label>
+            <input type="text" id="m-contato" placeholder="E-mail ou telefone">
+          </div>
+          <div class="login-field" style="grid-column:span 2">
+            <label>Observação</label>
+            <input type="text" id="m-obs" placeholder="Informação adicional">
+          </div>
+          <div class="login-field" style="grid-column:span 2">
+            <label>Observação de Rastreio</label>
+            <input type="text" id="m-obs-rastreio" placeholder="Informação de rastreio">
+          </div>
         </div>
 
-        <!-- Tabela de Vínculos -->
-        <div class="t-scroll table-depara" style="border: 1px solid var(--border); border-radius: 6px;">
-          <table style="margin: 0;">
-            <thead>
-              <tr>
-                <th style="text-align: left;">Nome na Planilha</th>
-                <th style="text-align: left;">Usuário Vinculado</th>
-                <th style="width: 80px; text-align: center;">Ação</th>
-              </tr>
-            </thead>
-            <tbody id="tabela-de-para">
-              <tr>
-                <td colspan="3" style="text-align: center; color: var(--muted); padding: 20px;">Carregando vínculos...</td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="login-error" id="manual-modal-error" style="display:none"></div>
+
+        <div class="modal-acts">
+          <button class="btn btn-ghost" onclick="closeManualModal()">Cancelar</button>
+          <button class="btn btn-primary" onclick="saveManualPedido()">Incluir Pedido</button>
         </div>
-
-      <div class="t-card" style="padding:20px;margin-top:16px" id="admin-users-card"></div>
-    </div>
-
-  </div></div>
-
-  <div class="overlay" id="user-overlay">
-    <div class="modal-box">
-      <div class="modal-h" id="user-modal-title">Novo Usuário</div>
-      <div class="modal-sh">Preencha os dados para criar o acesso ao sistema</div>
-
-      <div class="login-field">
-        <label>Nome completo</label>
-        <input type="text" id="u-nome" placeholder="Ex: Ana Souza">
-      </div>
-      <div class="login-field">
-        <label>E-mail</label>
-        <input type="email" id="u-email" placeholder="ana@fortecare.com">
-      </div>
-      <div class="login-field">
-        <label>Senha <span id="u-senha-hint" style="font-weight:400;color:var(--muted);font-size:11px"></span></label>
-        <input type="password" id="u-senha" placeholder="Mínimo 6 caracteres">
-      </div>
-      <div class="login-field">
-        <label>Setor</label>
-        <input type="text" id="u-setor" placeholder="Ex: Pós Vendas">
-      </div>
-      <div class="login-field">
-        <label>Tipo de Usuário</label>
-        <select class="fsel" id="u-tipo" style="width:100%">
-          <option value="Administrador">Administrador</option>
-          <option value="Gerente-logistica">Gerente de Logística</option>
-          <option value="Gerente">Gerente</option>
-          <option value="Operador">Operador</option>
-          <option value="Vendedor">Vendedor</option>
-        </select>
-      </div>
-
-      <div class="login-error" id="user-modal-error" style="display:none"></div>
-      <input type="hidden" id="u-edit-id">
-
-      <div class="modal-acts">
-        <button class="btn btn-ghost" onclick="closeUserModal()">Cancelar</button>
-        <button class="btn btn-primary" onclick="saveUser()">Salvar</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="overlay" id="overlay">
-  <div class="modal-box">
-    <div class="modal-h">Importar Arquivo</div>
-    <div class="modal-sh">Importe a planilha PÓS VENDAS (.xlsx, .xls ou .csv) para atualizar os dados</div>
-    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('f-file').click()">
-      <div class="dz-ic">📊</div>
-      <div class="dz-txt">Arraste aqui ou clique para selecionar</div>
-      <div class="dz-hint">Formatos aceitos: .xlsx, .xls, .csv</div>
-    </div>
-    <input type="file" id="f-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(event)">
-    <div class="import-ok" id="import-ok"></div>
-    <div class="modal-acts">
-      <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
-    </div>
-  </div>
-</div>
-
-<div class="overlay" id="manual-overlay">
-  <div class="modal-box" style="max-width:580px;width:100%;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column">
-    <div class="modal-h" id="manual-modal-title">Incluir Pedido Manual</div>
-    <div class="modal-sh">Preencha os dados do pedido para incluí-lo na base</div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div class="login-field">
-        <label>Nº da NF <span style="color:#EF4444">*</span></label>
-        <input type="text" id="m-nf" placeholder="Ex: 83001" required>
-      </div>
-      <div class="login-field">
-        <label>Vendedor <span style="color:#EF4444">*</span></label>
-        <input type="text" id="m-vendedor" placeholder="Ex: ANA SOUZA">
-      </div>
-      <div class="login-field" style="grid-column:span 2">
-        <label>Destinatário <span style="color:#EF4444">*</span></label>
-        <input type="text" id="m-destinatario" placeholder="Ex: HOSPITAL XYZ LTDA" required>
-      </div>
-      <div class="login-field">
-        <label>UF <span style="color:#EF4444">*</span></label>
-        <input type="text" id="m-uf" placeholder="Ex: SP" maxlength="2" style="text-transform:uppercase">
-      </div>
-      <div class="login-field" >
-        <label>Município <span style="color:#EF4444">*</span></label>
-        <input type="text" id="m-municipio" placeholder="Ex: São Paulo" required>
-      </div>
-      <div class="login-field" style="grid-column:span 2">
-        <label>Transportadora <span style="color:#EF4444">*</span></label>
-        <input type="text" id="m-transportadora" placeholder="Ex: BRASPRESS" required>
-      </div>
-      <div class="login-field">
-        <label>Data de Emissão <span style="color:#EF4444">*</span></label>
-        <input type="date" id="m-emissao" required>
-      </div>
-      <div class="login-field">
-        <label>Previsão de Entrega <span style="color:#EF4444">*</span></label>
-        <input type="date" id="m-previsao" required>
-      </div>
-      <div class="login-field">
-        <label>Valor NF (R$) <span style="color:#EF4444">*</span></label>
-        <input type="number" step="0.01" min="0" id="m-valornf" placeholder="0,00" required>
-      </div>
-      <div class="login-field">
-        <label>Valor Frete (R$) <span style="color:#EF4444">*</span></label>
-        <input type="number" step="0.01" min="0" id="m-valorfrete" placeholder="0,00" required>
-      </div>
-      <div class="login-field">
-        <label>Status</label>
-        <select id="m-status" class="fsel" style="width:100%">
-          <option value="EM TRÂNSITO">🚚 Em Trânsito</option>
-          <option value="EM ROTA">🔶 Em Rota</option>
-          <option value="ENTREGUE">✅ Entregue</option>
-        </select>
-      </div>
-      <div class="login-field">
-        <label>Contato</label>
-        <input type="text" id="m-contato" placeholder="E-mail ou telefone">
-      </div>
-      <div class="login-field" style="grid-column:span 2">
-        <label>Observação</label>
-        <input type="text" id="m-obs" placeholder="Informação adicional">
       </div>
     </div>
 
-    <div class="login-error" id="manual-modal-error" style="display:none"></div>
+    <div class="toast" id="toast"></div>
 
-    <div class="modal-acts">
-      <button class="btn btn-ghost" onclick="closeManualModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveManualPedido()">Incluir Pedido</button>
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script src="assets/JS/script.js"></script>
+    <script src="assets/JS/script.js"></script>
 </body>
+
 </html>

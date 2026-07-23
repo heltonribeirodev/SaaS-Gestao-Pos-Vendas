@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ForteCare — Nova Senha</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="assets/images/ForteCare-F-colors.png">
+  <link rel="stylesheet" href="assets/css/login.css">
+</head>
+
+<body>
+
+  <div class="card">
+    <div class="logo-wrap" id="logo-wrap">
+      <img src="assets/images/ForteCare-F-colors.png" alt="ForteCare"
+        onerror="this.style.display='none'; document.getElementById('logo-fallback').style.display='flex'">
+      <span class="logo-fallback" id="logo-fallback" style="display:none">F</span>
+    </div>
+
+    <h1>Redefinir Senha</h1>
+    <p class="sub">Digite sua nova senha abaixo</p>
+
+    <div class="field">
+      <label for="nova-senha">Nova Senha</label>
+      <input type="password" id="nova-senha" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+    </div>
+
+    <div class="field">
+      <label for="confirma-senha">Confirmar Nova Senha</label>
+      <input type="password" id="confirma-senha" placeholder="Repita a nova senha" autocomplete="new-password">
+    </div>
+
+    <div class="error" id="error" style="display: none;"></div>
+
+    <button class="btn" id="btn-salvar" onclick="redefinirSenha()">Salvar Nova Senha</button>
+
+    <p class="hint" style="margin-top: 15px;">
+      <a href="login.html" style="color: #0056b3; text-decoration: none;">← Voltar para o Login</a>
+    </p>
+    
+    <p class="hint">ForteCare v1.0 · Pós Vendas 2026</p>
+  </div>
+
+  <script src="assets/JS/nova-senha.js"></script>
+</body>
+
+</html>

@@ -28,16 +28,20 @@
       <input type="email" id="email" placeholder="seu@email.com" autocomplete="username">
     </div>
     <div class="field">
-      <label for="senha">Senha</label>
+      <div style="display: flex; justify-content: space-between; align-items: baseline;">
+        <label for="senha">Senha</label>
+        <a href="#" onclick="solicitarRecuperacao(event)" style="font-size: 12px; color: #0056b3; text-decoration: none;">Esqueci minha senha</a>
+      </div>
       <input type="password" id="senha" placeholder="••••••••" autocomplete="current-password">
     </div>
+    
 
     <div class="error" id="error"></div>
 
     <button class="btn" id="btn-entrar" onclick="tentarLogin()">Entrar</button>
 
     <p class="hint">Em caso de dúvidas, entre em contato com o administrador do sistema.</p>
-    <p class="hint">ForteCare v1.0 · Pós Vendas 2026</p>
+    <p class="hint">ForteCare v1.0.0 · Pós Vendas 2026</p>
     <p class="hint hrdev">Desenvolvido por <a href="https://hrdev.com.br/" target="_blank">HR | DEV</a></p>
   </div>
 

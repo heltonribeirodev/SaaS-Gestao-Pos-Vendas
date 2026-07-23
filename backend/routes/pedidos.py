@@ -5,10 +5,12 @@ import re
 from backend.database import get_conn, release_conn, get_cursor
 from backend.models import PedidoCreate, PedidoUpdate, ImportarPayload
 from backend.routes.auth import get_usuario_atual
+from backend.permissoes import (
+    check, PODE_VER_TODOS, PODE_CRIAR_PEDIDO,
+    PODE_EDITAR_PEDIDO, PODE_EXCLUIR_PEDIDO
+)
 
 router = APIRouter(prefix="/api/pedidos", tags=["pedidos"])
-
-TIPOS_RESTRITOS = ("Vendedor",)  # tipos que só veem os próprios pedidos
 
 
 def iso_or_none(val):
@@ -53,26 +55,27 @@ async def listar(
         conditions = ["1=1"]
         params = []
 
-        # ── Restrição de vendedor ────────────────────────────────
-        # Se o usuário for do tipo Vendedor, força o filtro pelo nome_planilha dele
-        if usuario.get("tipo") in TIPOS_RESTRITOS:
+        # Obtém o tipo de usuário autenticado
+        tipo = usuario.get("tipo")
+
+        # Vendedor só vê os próprios pedidos via De-Para
+        if tipo == "Vendedor":
             nome_planilha = get_nome_planilha_vendedor(conn, usuario["id"])
             if not nome_planilha:
-                # Vendedor sem vínculo no De-Para não vê nada
                 return []
             conditions.append("UPPER(vendedor) = UPPER(%s)")
             params.append(nome_planilha)
         else:
-            # Outros tipos respeitam o filtro de vendedor da UI normalmente
+            # Todos os outros (incluindo Gerente) veem tudo, podem filtrar por vendedor
             if vendedor:
                 conditions.append("vendedor = %s")
                 params.append(vendedor)
 
-        if status:         conditions.append("status = %s");                                                    params.append(status)
-        if transportadora: conditions.append("transportadora = %s");                                            params.append(transportadora)
-        if uf:             conditions.append("uf = %s");                                                        params.append(uf)
-        if de:             conditions.append("emissao >= %s");                                                  params.append(de)
-        if ate:            conditions.append("emissao <= %s");                                                  params.append(ate)
+        if status:         conditions.append("status = %s");                                            params.append(status)
+        if transportadora: conditions.append("transportadora = %s");                                    params.append(transportadora)
+        if uf:             conditions.append("uf = %s");                                                params.append(uf)
+        if de:             conditions.append("emissao >= %s");                                          params.append(de)
+        if ate:            conditions.append("emissao <= %s");                                          params.append(ate)
         if q:
             conditions.append("(nf ILIKE %s OR destinatario ILIKE %s OR municipio ILIKE %s)")
             params.extend([f"%{q}%"] * 3)
@@ -96,9 +99,8 @@ async def listar(
 # ── POST /api/pedidos — inclusão manual ─────────────────────────
 @router.post("/", status_code=201)
 async def criar(body: PedidoCreate, usuario: dict = Depends(get_usuario_atual)):
-    # Vendedor não pode incluir pedidos manualmente
-    if usuario.get("tipo") in TIPOS_RESTRITOS:
-        raise HTTPException(status_code=403, detail="Vendedores não podem incluir pedidos manualmente.")
+    if not check(usuario.get("tipo"), PODE_CRIAR_PEDIDO):
+        raise HTTPException(status_code=403, detail="Sem permissão para incluir pedidos.")
 
     conn = get_conn()
     try:
@@ -107,14 +109,14 @@ async def criar(body: PedidoCreate, usuario: dict = Depends(get_usuario_atual)):
                 INSERT INTO pedidos
                   (nf, vendedor, valor_nf, valor_frete, pct_frete, transportadora,
                    emissao, destinatario, uf, municipio, previsao, entrega,
-                   dias, contato, status, obs, criado_por)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   dias, contato, status, obs, obs_rastreio, criado_por)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 RETURNING *
             """, (
                 body.nf, body.vendedor, body.valor_nf, body.valor_frete, body.pct_frete,
                 body.transportadora, body.emissao, body.destinatario, body.uf, body.municipio,
                 body.previsao, body.entrega, body.dias, body.contato,
-                body.status, body.obs, usuario["id"]
+                body.status, body.obs, body.obs_rastreio, usuario["id"]
             ))
             row = cur.fetchone()
             conn.commit()
@@ -129,8 +131,8 @@ async def criar(body: PedidoCreate, usuario: dict = Depends(get_usuario_atual)):
 # ── POST /api/pedidos/importar ───────────────────────────────────
 @router.post("/importar")
 async def importar(payload: ImportarPayload, usuario: dict = Depends(get_usuario_atual)):
-    if usuario.get("tipo") in TIPOS_RESTRITOS:
-        raise HTTPException(status_code=403, detail="Vendedores não podem importar planilhas.")
+    if not check(usuario.get("tipo"), PODE_CRIAR_PEDIDO):
+        raise HTTPException(status_code=403, detail="Sem permissão para importar planilhas.")
 
     if not payload.pedidos:
         raise HTTPException(status_code=400, detail="Nenhum pedido enviado.")
@@ -153,13 +155,13 @@ async def importar(payload: ImportarPayload, usuario: dict = Depends(get_usuario
                     INSERT INTO pedidos
                       (nf, vendedor, valor_nf, valor_frete, pct_frete, transportadora,
                        emissao, destinatario, uf, municipio, previsao, entrega,
-                       dias, contato, status, obs, criado_por)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                       dias, contato, status, obs, obs_rastreio, criado_por)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (
                     nf, p.vendedor, valor_nf, valor_frete, pct_frete,
                     p.transportadora, emissao, p.destinatario, p.uf, p.municipio,
                     previsao, entrega, p.dias or 0, p.contato,
-                    p.status or "EM TRÂNSITO", p.obs, usuario["id"]
+                    p.status or "EM TRÂNSITO", p.obs, p.obs_rastreio, usuario["id"]
                 ))
                 inseridos += 1
         conn.commit()
@@ -174,23 +176,19 @@ async def importar(payload: ImportarPayload, usuario: dict = Depends(get_usuario
 # ── PUT /api/pedidos/:id ─────────────────────────────────────────
 @router.put("/{pedido_id}")
 async def atualizar(pedido_id: int, body: PedidoUpdate, usuario: dict = Depends(get_usuario_atual)):
+    tipo = usuario.get("tipo")
+    if not check(tipo, PODE_EDITAR_PEDIDO):
+        raise HTTPException(status_code=403, detail="Sem permissão para editar pedidos.")
+
     conn = get_conn()
     try:
-        # Vendedor só pode atualizar pedidos que sejam dele
-        if usuario.get("tipo") in TIPOS_RESTRITOS:
-            nome_planilha = get_nome_planilha_vendedor(conn, usuario["id"])
-            with get_cursor(conn) as cur:
-                cur.execute("SELECT vendedor FROM pedidos WHERE id = %s", (pedido_id,))
-                row = cur.fetchone()
-                if not row or (nome_planilha and row["vendedor"].upper() != nome_planilha.upper()):
-                    raise HTTPException(status_code=403, detail="Sem permissão para editar este pedido.")
-
         with get_cursor(conn) as cur:
             cur.execute("""
                 UPDATE pedidos SET
                     status         = COALESCE(%s, status),
                     entrega        = COALESCE(%s::date, entrega),
                     obs            = COALESCE(%s, obs),
+                    obs_rastreio   = COALESCE(%s, obs_rastreio),
                     contato        = COALESCE(%s, contato),
                     previsao       = COALESCE(%s::date, previsao),
                     vendedor       = COALESCE(%s, vendedor),
@@ -203,10 +201,14 @@ async def atualizar(pedido_id: int, body: PedidoUpdate, usuario: dict = Depends(
             """, (
                 body.status,
                 str(body.entrega) if body.entrega else None,
-                body.obs, body.contato,
+                body.obs,
+                body.obs_rastreio,
+                body.contato,
                 str(body.previsao) if body.previsao else None,
-                body.vendedor, body.transportadora,
-                body.valor_nf, body.valor_frete,
+                body.vendedor, 
+                body.transportadora,
+                body.valor_nf, 
+                body.valor_frete,
                 pedido_id
             ))
             row = cur.fetchone()
@@ -228,8 +230,8 @@ async def atualizar(pedido_id: int, body: PedidoUpdate, usuario: dict = Depends(
 # ── DELETE /api/pedidos/:id ──────────────────────────────────────
 @router.delete("/{pedido_id}")
 async def deletar(pedido_id: int, usuario: dict = Depends(get_usuario_atual)):
-    if usuario.get("tipo") in TIPOS_RESTRITOS:
-        raise HTTPException(status_code=403, detail="Vendedores não podem excluir pedidos.")
+    if not check(usuario.get("tipo"), PODE_EXCLUIR_PEDIDO):
+        raise HTTPException(status_code=403, detail="Sem permissão para excluir pedidos.")
 
     conn = get_conn()
     try:

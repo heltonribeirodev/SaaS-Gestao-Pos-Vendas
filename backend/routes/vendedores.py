@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from backend.database import get_conn, release_conn, get_cursor
 from backend.routes.auth import get_usuario_atual
+from backend.permissoes import check, PODE_GERENCIAR_DEPARA
 
 router = APIRouter(prefix="/api/vendedores", tags=["Vendedores"])
 
@@ -66,6 +67,8 @@ def listar_de_para(usuario: dict = Depends(get_usuario_atual)):
 # ── POST /api/vendedores/de-para ─────────────────────────────────
 @router.post("/de-para", status_code=201)
 def salvar_de_para(dados: DeParaCreate, usuario: dict = Depends(get_usuario_atual)):
+    if not check(usuario.get("tipo"), PODE_GERENCIAR_DEPARA):
+        raise HTTPException(status_code=403, detail="Sem permissão para gerenciar vínculos De-Para.")
     conn = get_conn()
     try:
         with get_cursor(conn) as cur:
@@ -87,6 +90,8 @@ def salvar_de_para(dados: DeParaCreate, usuario: dict = Depends(get_usuario_atua
 # ── DELETE /api/vendedores/de-para/:id ───────────────────────────
 @router.delete("/de-para/{id}")
 def deletar_de_para(id: int, usuario: dict = Depends(get_usuario_atual)):
+    if not check(usuario.get("tipo"), PODE_GERENCIAR_DEPARA):
+        raise HTTPException(status_code=403, detail="Sem permissão para remover vínculos De-Para.")
     conn = get_conn()
     try:
         with get_cursor(conn) as cur:

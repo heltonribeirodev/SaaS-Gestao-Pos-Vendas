@@ -4,12 +4,12 @@
 let dataSET = [];
 let filteredData = [];
 let currentPage = 1;
-const rowsPerPage = 10;
+const rowsPerPage = 15;
 let currentSort = { col: 'id', asc: true };
 let urgencyFilter = null; 
 let currentUser = null;
 
-const STATUS_OPTIONS = ['ENTREGUE', 'EM TRÂNSITO', 'EM ROTA'];
+const STATUS_OPTIONS = ['EM TRÂNSITO', 'EM ROTA DE ENTREGA','ENTREGUE','RETIDO FISCALIZAÇÃO'];
 
 // Função base para todas as requisições API (já inclui os cookies de sessão do JWT)
 async function apiFetch(endpoint, options = {}) {
@@ -118,9 +118,10 @@ const formatMoney = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', c
 
 function getBadgeClass(status) {
   switch(String(status).toUpperCase()) {
-    case 'ENTREGUE': return 'bE';
     case 'EM TRÂNSITO': return 'bT';
-    case 'EM ROTA': return 'bR';
+    case 'EM ROTA DE ENTREGA': return 'bR';
+    case 'ENTREGUE': return 'bE';
+    case 'RETIDO FISCALIZAÇÃO': return 'bF';
     default: return 'bT';
   }
 }
@@ -171,7 +172,8 @@ async function loadPedidosFromDB() {
       dias: dbItem.dias || 0,
       contato: dbItem.contato || '',
       status: dbItem.status || 'EM TRÂNSITO',
-      obs: dbItem.obs || ''
+      obs: dbItem.obs || '',
+      obs_rastreio: dbItem.obs_rastreio || ''
     }));
 
     filteredData = [...dataSET];
@@ -249,12 +251,23 @@ function applyFilters() {
     if (fFrom && item.emissao < fFrom) return false;
     if (fTo && item.emissao > fTo) return false;
     if (urgencyFilter) {
-      if (!isPending(item)) return false;
-      const prev = parseBrDate(item.previsao);
-      if (!prev) return false;
-      const hoje = todayMidnight();
-      if (urgencyFilter === 'hoje' && prev.getTime() !== hoje.getTime()) return false;
-      if (urgencyFilter === 'atraso' && prev.getTime() >= hoje.getTime()) return false;
+      if (urgencyFilter === 'rota') {
+        if (item.status.toUpperCase() !== 'EM ROTA DE ENTREGA') return false;
+      } else if (urgencyFilter === 'retido') {
+        if (item.status.toUpperCase() !== 'RETIDO FISCALIZAÇÃO') return false;
+      } else {
+        const prev = parseBrDate(item.previsao);
+        if (!prev) return false;
+        const hoje = todayMidnight();
+        
+        if (urgencyFilter === 'hoje') {
+          if (item.entrega || prev.getTime() !== hoje.getTime()) return false;
+        } 
+        else if (urgencyFilter === 'atraso') {
+          // Regra exata: Ainda não foi entregue (!item.entrega) e previsão menor que hoje
+          if (item.entrega && item.entrega.trim() !== '' || prev.getTime() >= hoje.getTime()) return false;
+        }
+      }
     }
     return true;
   });
@@ -268,8 +281,14 @@ function goToUrgent(type) {
   clearFilters();
   urgencyFilter = type;
   const tag = document.getElementById('urgency-tag');
-  tag.style.display = 'inline-flex';
-  tag.querySelector('.ptag-txt').innerText = type === 'hoje' ? 'A entregar hoje' : 'Em atraso';
+  if (tag) {
+    tag.style.display = 'inline-flex';
+    let txt = 'A entregar hoje';
+    if (type === 'atraso') txt = 'Em atraso';
+    if (type === 'rota') txt = 'Em rota de entrega';
+    if (type === 'retido') txt = 'Retido fiscalização';
+    tag.querySelector('.ptag-txt').innerText = txt;
+  }
   applyFilters();
 }
 
@@ -280,15 +299,29 @@ function clearUrgencyFilter() {
 }
 
 function clearFilters() {
-  document.getElementById('f-status').value = '';
-  document.getElementById('f-vend').value = '';
-  document.getElementById('f-transp').value = '';
-  document.getElementById('f-uf').value = '';
-  document.getElementById('f-q').value = '';
-  document.getElementById('g-search').value = '';
+  // Lista de todos os IDs de inputs que precisam ser limpos
+  const filterIds = ['f-status', 'f-vend', 'f-transp', 'f-uf', 'f-q', 'g-search'];
+
+  // Percorre a lista e só limpa o valor se o elemento existir na tela
+  filterIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.value = '';
+    }
+  });
+
   urgencyFilter = null;
-  document.getElementById('urgency-tag').style.display = 'none';
-  clearDateFilter();
+  
+  // Verifica se a tag de urgência existe antes de ocultá-la
+  const urgencyTag = document.getElementById('urgency-tag');
+  if (urgencyTag) {
+    urgencyTag.style.display = 'none';
+  }
+
+  // Chama a limpeza de datas (assumindo que essa função também esteja segura)
+  if (typeof clearDateFilter === 'function') {
+    clearDateFilter();
+  }
 }
 
 function setPreset(preset, el) {
@@ -340,6 +373,13 @@ function renderDashboard() {
   const total = data.length;
   const entregues = data.filter(p => p.status.toUpperCase() === 'ENTREGUE').length;
   const emTransito = data.filter(p => p.status.toUpperCase() === 'EM TRÂNSITO').length;
+  const emRota = data.filter(p => p.status.toUpperCase() === 'EM ROTA DE ENTREGA').length;
+  const retido = data.filter(p => p.status.toUpperCase() === 'RETIDO FISCALIZAÇÃO').length;
+
+  const elRota = document.getElementById('qtd-rota');
+  if (elRota) elRota.innerText = emRota;
+  const elRetido = document.getElementById('qtd-retido');
+  if (elRetido) elRetido.innerText = retido;
 
   document.getElementById('kpi-total').innerText = total;
   document.getElementById('kpi-ent').innerText = entregues;
@@ -360,18 +400,32 @@ function renderDashboard() {
   }
 
   let entregarHoje = 0, emAtraso = 0, entreguesNoPrazo = 0, entreguesAtrasados = 0;
+  
   data.forEach(item => {
     const prev = parseBrDate(item.previsao);
-    if (isPending(item)) {
+    const temEntrega = item.entrega && item.entrega.trim() !== '' && item.entrega !== 'dd/mm/aaaa';
+    
+    // Notas em atraso: sem data de entrega válida e com previsão menor que hoje
+    if (!temEntrega) {
       if (!prev) return;
-      if (prev.getTime() === hoje.getTime()) entregarHoje++;
-      else if (prev.getTime() < hoje.getTime()) emAtraso++;
+      if (prev.getTime() === hoje.getTime()) {
+        entregarHoje++;
+      } else if (prev.getTime() < hoje.getTime()) {
+        emAtraso++;
+      }
       return;
     }
-    if (item.status.toUpperCase() === 'ENTREGUE') {
-      const entregaDate = parseBrDate(item.entrega);
-      if (entregaDate && prev && entregaDate.getTime() > prev.getTime()) entreguesAtrasados++;
-      else entreguesNoPrazo++;
+
+    // Entregues fora do prazo: possui data de entrega e foi entregue após a previsão
+    const entregaDate = parseBrDate(item.entrega);
+    if (entregaDate && prev) {
+      if (entregaDate.getTime() > prev.getTime()) {
+        entreguesAtrasados++;
+      } else {
+        entreguesNoPrazo++;
+      }
+    } else {
+      entreguesNoPrazo++;
     }
   });
 
@@ -379,7 +433,7 @@ function renderDashboard() {
   document.getElementById('kpi-atraso').innerText = emAtraso;
   document.getElementById('card-atraso').classList.toggle('is-alert', emAtraso > 0);
   document.getElementById('card-hoje').classList.toggle('is-alert', entregarHoje > 0);
-  document.getElementById('kpi-atrasos-total').innerText = (emAtraso + entreguesAtrasados);
+  document.getElementById('kpi-atrasos-total').innerText = entreguesAtrasados;
 
   const baseSLA = entreguesNoPrazo + entreguesAtrasados + emAtraso;
   const nivelServico = baseSLA > 0 ? Math.round((entreguesNoPrazo / baseSLA) * 100) : null;
@@ -405,7 +459,7 @@ function renderDashboard() {
   if (data.length === 0) {
     rBody.innerHTML = `<tr><td colspan="8" class="empty">Nenhum registro com emissão no mês atual.</td></tr>`;
   } else {
-    rBody.innerHTML = [...data].sort((a,b) => b.emissao.localeCompare(a.emissao)).slice(0, 5).map(item => `
+    rBody.innerHTML = [...data].sort((a,b) => b.emissao.localeCompare(a.emissao)).slice(0, 10).map(item => `
       <tr>
         <td class="td-mono">${item.id}</td>
         <td>${item.vendedor}</td>
@@ -427,7 +481,7 @@ function renderChartsEngine(data) {
   if (chartVendInstance) chartVendInstance.destroy();
   if (chartTranspInstance) chartTranspInstance.destroy();
 
-  const statusCounts = { 'ENTREGUE': 0, 'EM TRÂNSITO': 0, 'EM ROTA': 0};
+  const statusCounts = { 'ENTREGUE': 0, 'EM TRÂNSITO': 0, 'EM ROTA DE ENTREGA': 0, 'RETIDO FISCALIZAÇÃO': 0 };
   data.forEach(i => {
     let s = i.status.toUpperCase();
     if (statusCounts[s] !== undefined) statusCounts[s]++;
@@ -537,6 +591,14 @@ function renderPedidos() {
         </div>
       </td>
       <td>
+        <div class="obs-edit-wrap">
+          <input type="text" class="obs-edit-input" id="obs-rastreio-${item._rowId}"
+                 value="${escapeHtml(item.obs_rastreio)}" placeholder="Sem obs rastreio"
+                 onchange="updatePedidoAPI(${item._rowId}, { obs_rastreio: this.value })">
+          ${item.obs_rastreio ? `<span class="obs-edit-clear" title="Remover rastreio" onclick="clearObsRastreio(${item._rowId})">✕</span>` : ''}
+        </div>
+      </td>
+      <td>
         <button class="delete-btn" title="Excluir registro" onclick="deleteRecord(${item._rowId})">🗑</button>
       </td>
     </tr>
@@ -560,6 +622,7 @@ async function updatePedidoAPI(rowId, updatePayload) {
       // Sincroniza estado local com o sucesso
       if (updatePayload.status !== undefined) item.status = updatePayload.status;
       if (updatePayload.obs !== undefined) item.obs = updatePayload.obs;
+      if (updatePayload.obs_rastreio !== undefined) item.obs_rastreio = updatePayload.obs_rastreio;
       if (updatePayload.contato !== undefined) item.contato = updatePayload.contato;
       if (updatePayload.entrega !== undefined) item.entrega = isoToBr(updatePayload.entrega);
       if (updatePayload.valor_frete !== undefined) {
@@ -582,6 +645,12 @@ function clearObs(rowId) {
   const input = document.getElementById('obs-' + rowId);
   if (input) input.value = '';
   updatePedidoAPI(rowId, { obs: '' });
+}
+
+function clearObsRastreio(rowId) {
+  const input = document.getElementById('obs-rastreio-' + rowId);
+  if (input) input.value = '';
+  updatePedidoAPI(rowId, { obs_rastreio: '' });
 }
 
 async function deleteRecord(rowId) {
@@ -684,7 +753,7 @@ async function saveManualPedido() {
     nf, vendedor: vend, valor_nf, valor_frete, pct_frete: calcPct(valor_nf, valor_frete),
     transportadora: transp, emissao, destinatario: dest, uf, municipio: mun,
     previsao: prev || null, contato: document.getElementById('m-contato').value.trim(),
-    status: document.getElementById('m-status').value, obs: document.getElementById('m-obs').value.trim()
+    status: document.getElementById('m-status').value, obs: document.getElementById('m-obs').value.trim(), obs_rastreio: document.getElementById('m-obs-rastreio').value.trim()
   };
 
   try {
@@ -802,8 +871,8 @@ function csvEscape(value) {
 
 function exportCSV() {
   if(filteredData.length === 0) { showToast("Sem dados ativos para exportar."); return; }
-  const headers = ['#NF', 'Vendedor', 'Destinatario', 'UF', 'Municipio', 'Transportadora', 'Emissao', 'ValorNF', 'ValorFrete', 'PercFrete', 'Previsao', 'DataEntregue', 'Contato', 'Status', 'Obs'];
-  const rows = filteredData.map(i => [ i.id, i.vendedor, i.destinatario, i.uf, i.municipio, i.transportadora, i.emissao, i.valorNF, i.valorC, calcPct(i.valorNF, i.valorC), i.previsao, i.entrega, i.contato, i.status, i.obs ].map(csvEscape).join(';'));
+  const headers = ['#NF', 'Vendedor', 'Destinatario', 'UF', 'Municipio', 'Transportadora', 'Emissao', 'ValorNF', 'ValorFrete', 'PercFrete', 'Previsao', 'DataEntregue', 'Contato', 'Status', 'Obs', 'ObsRastreio'];
+  const rows = filteredData.map(i => [ i.id, i.vendedor, i.destinatario, i.uf, i.municipio, i.transportadora, i.emissao, i.valorNF, i.valorC, calcPct(i.valorNF, i.valorC), i.previsao, i.entrega, i.contato, i.status, i.obs, i.obs_rastreio ].map(csvEscape).join(';'));
   const csvContent = "\uFEFF" + headers.join(';') + "\n" + rows.join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -827,33 +896,44 @@ const TIPOS_USUARIO = ['Administrador','Gerente de Logística', 'Gerente', 'Oper
 
 function applyLoggedUser() {
   if (!currentUser) return;
-  const initials = currentUser.nome.split(' ').filter(Boolean).slice(0, 2).map(n => n[0]).join('').toUpperCase();
-  document.getElementById('user-av').innerText = initials || '?';
-  document.getElementById('user-name').innerText = currentUser.nome;
-  document.getElementById('user-role').innerText = currentUser.tipo;
-  document.getElementById('user-pill').setAttribute('data-tooltip', `${currentUser.nome} — ${currentUser.tipo} (clique para sair)`);
+  const tipo = currentUser.tipo;
 
+  // Avatar e nome na sidebar
+  const initials = currentUser.nome.split(' ').filter(Boolean).slice(0, 2).map(n => n[0]).join('').toUpperCase();
+  document.getElementById('user-av').innerText   = initials || '?';
+  document.getElementById('user-name').innerText = currentUser.nome;
+  document.getElementById('user-role').innerText = tipo;
+  document.getElementById('user-pill').setAttribute('data-tooltip', `${currentUser.nome} — ${tipo} (clique para sair)`);
+
+  // ── Permissões por tipo ──────────────────────────────────────
+  const PODE_CRUD_PEDIDO  = ['Administrador','Gerente de Logística','Operador'].includes(tipo);
+  const PODE_VER_ADMIN    = ['Administrador','Gerente de Logística','Operador'].includes(tipo);
+  const PODE_CRUD_USUARIO = ['Administrador','Gerente de Logística'].includes(tipo);
+  const IS_VENDEDOR       = tipo === 'Vendedor';
+  const IS_GERENTE        = tipo === 'Gerente';
+
+  // ── Aba Administração ────────────────────────────────────────
   const adminMenuItem = document.querySelector('.sb-nav li[data-tooltip="Administração"]');
   if (adminMenuItem) {
-    adminMenuItem.style.display = currentUser.tipo === 'Administrador' ? 'flex' : 'none';
-    if (currentUser.tipo !== 'Administrador' && document.getElementById('tab-administracao')?.classList.contains('active')) {
+    adminMenuItem.style.display = PODE_VER_ADMIN ? 'flex' : 'none';
+    if (!PODE_VER_ADMIN && document.getElementById('tab-administracao')?.classList.contains('active')) {
       showTab('dashboard', document.querySelector('.sb-nav li:nth-child(1)'));
     }
   }
 
-  // ── Restrições para Vendedor ─────────────────────────────────
-  if (currentUser.tipo === 'Vendedor') {
-    // Esconde botões de importar planilha e incluir manual
-    document.querySelectorAll('[onclick="openModal()"], [onclick="openManualModal()"]').forEach(el => {
-      el.style.display = 'none';
-    });
-    // Esconde filtro de vendedor (vendedor só vê os próprios pedidos)
-    const fVend = document.getElementById('f-vend');
-    if (fVend) fVend.closest('select') && (fVend.style.display = 'none');
-    // Esconde botão exportar CSV
-    const btnExport = document.querySelector('[onclick="exportCSV()"]');
-    if (btnExport) btnExport.style.display = 'none';
-  }
+  // ── Botões da topbar ─────────────────────────────────────────
+  const btnImportar = document.querySelector('[onclick="openModal()"]');
+  const btnManual   = document.querySelector('[onclick="openManualModal()"]');
+  const btnExportar = document.querySelector('[onclick="exportCSV()"]');
+
+  if (btnImportar) btnImportar.style.display = PODE_CRUD_PEDIDO ? '' : 'none';
+  if (btnManual)   btnManual.style.display   = PODE_CRUD_PEDIDO ? '' : 'none';
+  // Gerente pode exportar, Vendedor não
+  if (btnExportar) btnExportar.style.display = IS_VENDEDOR ? 'none' : '';
+
+  // ── Filtro de vendedor (Vendedor só vê os próprios) ──────────
+  const fVend = document.getElementById('f-vend');
+  if (fVend) fVend.style.display = IS_VENDEDOR ? 'none' : '';
 }
 
 async function logout() {
@@ -872,72 +952,87 @@ async function loadAndRenderUsersPanel() {
   const card = document.getElementById('admin-users-card');
   if (!card) return;
 
-  if (!currentUser || currentUser.tipo !== 'Administrador') {
-    card.innerHTML = `<div class="chart-title" style="margin-bottom:12px">Gestão de Usuários</div><p style="font-size:13px;color:var(--muted)">Acesso restrito a usuários do tipo Administrador.</p>`;
+  const tipo = currentUser?.tipo;
+  const PODE_VER_ADMIN    = ['Administrador','Gerente de Logística','Operador'].includes(tipo);
+  const PODE_CRUD_USUARIO = ['Administrador','Gerente de Logística'].includes(tipo);
+  const PODE_DEPARA       = ['Administrador','Gerente de Logística','Operador'].includes(tipo);
+
+  if (!PODE_VER_ADMIN) {
+    card.innerHTML = `<div class="chart-title" style="margin-bottom:12px">Gestão de Usuários</div>
+      <p style="font-size:13px;color:var(--muted)">Sem permissão de acesso.</p>`;
     return;
   }
 
-  card.innerHTML = `Carregando usuários do banco de dados...`;
+  card.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px">Carregando usuários…</div>`;
 
   try {
     const res = await apiFetch('/api/usuarios/');
     const users = await res.json();
-    
-    // Anexa a lista na window para edição
     window.loadedUsers = users;
 
     card.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
         <div class="chart-title" style="margin:0">Gestão de Usuários</div>
-        <button class="btn btn-primary" style="font-size:12px" onclick="openUserModal()">+ Novo Usuário</button>
+        ${PODE_CRUD_USUARIO ? `<button class="btn btn-primary" style="font-size:12px" onclick="openUserModal()">+ Novo Usuário</button>` : ''}
       </div>
       <div class="t-scroll">
         <table>
-          <thead><tr><th>Nome</th><th>E-mail</th><th>Setor</th><th>Tipo</th><th>Status</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Setor</th><th>Tipo</th><th>Status</th>${PODE_CRUD_USUARIO ? '<th>Ações</th>' : ''}</tr></thead>
           <tbody>
-            ${users.map(u => `
-              <tr>
+            ${users.map(u => {
+              const isAdmin      = u.tipo === 'Administrador';
+              const podeAlterar  = PODE_CRUD_USUARIO && !(isAdmin && tipo !== 'Administrador');
+              return `<tr>
                 <td>${escapeHtml(u.nome)}</td>
                 <td>${escapeHtml(u.email)}</td>
-                <td>${escapeHtml(u.setor)}</td>
+                <td>${escapeHtml(u.setor || '-')}</td>
                 <td><span class="badge bT">${escapeHtml(u.tipo)}</span></td>
                 <td><span class="badge ${u.ativo ? 'bE' : 'bR'}">${u.ativo ? 'Ativo' : 'Inativo'}</span></td>
-                <td>
-                  <button class="delete-btn" title="Editar usuário" onclick="openUserModal(${u.id})">✏️</button>
-                  <button class="delete-btn" title="Excluir usuário" onclick="deleteUser(${u.id})">🗑</button>
-                </td>
-              </tr>
-            `).join('')}
+                ${PODE_CRUD_USUARIO ? `<td>
+                  ${podeAlterar ? `<button class="delete-btn" title="Editar" onclick="openUserModal(${u.id})">✏️</button>` : '<span style="color:var(--muted);font-size:11px">—</span>'}
+                  ${podeAlterar ? `<button class="delete-btn" title="Excluir" onclick="deleteUser(${u.id}, '${escapeHtml(u.nome)}')">🗑</button>` : ''}
+                </td>` : ''}
+              </tr>`;
+            }).join('')}
           </tbody>
         </table>
       </div>
     `;
   } catch (err) {
-    card.innerHTML = `Falha ao carregar a lista de usuários.`;
+    card.innerHTML = `<p style="color:red;font-size:13px">Erro ao carregar usuários.</p>`;
   }
 }
 
 function openUserModal(id) {
   const isEdit = !!id;
+  const tipo = currentUser?.tipo;
+
   document.getElementById('user-modal-title').innerText = isEdit ? 'Editar Usuário' : 'Novo Usuário';
   document.getElementById('user-modal-error').style.display = 'none';
   document.getElementById('u-edit-id').value = id || '';
 
+  // Filtra opções de tipo conforme permissão
+  const selectTipo = document.getElementById('u-tipo');
+  if (selectTipo) {
+    const adminOpt = selectTipo.querySelector('option[value="Administrador"]');
+    if (adminOpt) adminOpt.style.display = tipo === 'Administrador' ? '' : 'none';
+  }
+
   if (isEdit && window.loadedUsers) {
     const user = window.loadedUsers.find(u => u.id === id);
     if (!user) return;
-    document.getElementById('u-nome').value = user.nome;
+    document.getElementById('u-nome').value  = user.nome;
     document.getElementById('u-email').value = user.email;
     document.getElementById('u-senha').value = '';
-    document.getElementById('u-setor').value = user.setor;
-    document.getElementById('u-tipo').value = user.tipo;
+    document.getElementById('u-setor').value = user.setor || '';
+    document.getElementById('u-tipo').value  = user.tipo;
     document.getElementById('u-senha-hint').innerText = '(deixe em branco para manter a senha atual)';
   } else {
-    document.getElementById('u-nome').value = '';
+    document.getElementById('u-nome').value  = '';
     document.getElementById('u-email').value = '';
     document.getElementById('u-senha').value = '';
     document.getElementById('u-setor').value = '';
-    document.getElementById('u-tipo').value = 'Operador';
+    document.getElementById('u-tipo').value  = 'Operador';
     document.getElementById('u-senha-hint').innerText = '';
   }
   document.getElementById('user-overlay').classList.add('open');
@@ -988,9 +1083,9 @@ async function saveUser() {
   }
 }
 
-async function deleteUser(id) {
+async function deleteUser(id, nome) {
   if (currentUser && currentUser.id === id) { alert('Você não pode excluir o próprio usuário logado.'); return; }
-  if (!confirm(`Tem certeza que deseja excluir permanentemente este usuário do banco de dados?`)) return;
+  if (!confirm(`Tem certeza que deseja excluir permanentemente o usuário "${nome}"?`)) return;
 
   try {
     const res = await apiFetch(`/api/usuarios/${id}`, { method: 'DELETE' });
@@ -1112,13 +1207,15 @@ async function carregarDePara() {
       if (!res) return;
       const users = await res.json();
       selectEl.innerHTML = '<option value="">Selecione um usuário</option>' +
-        users.filter(u => u.ativo).map(u =>
-          `<option value="${u.id}">${escapeHtml(u.email)} | ${escapeHtml(u.nome)}</option>`
-        ).join('');
+        users
+          .filter(u => u.ativo && u.tipo === 'Vendedor') // <-- Filtro ajustado aqui
+          .map(u =>
+            `<option value="${u.id}">${escapeHtml(u.email)} | ${escapeHtml(u.nome)}</option>`
+          ).join('');
     } catch (e) {
       selectEl.innerHTML = '<option value="">Erro ao carregar usuários</option>';
     }
-  }
+}
 
   // Carrega vínculos existentes
   if (tbodyEl) {
@@ -1198,4 +1295,10 @@ async function deletarDePara(id) {
     } catch (e) {
         console.error('Erro ao deletar vínculo De-Para:', e);
     }
+}
+
+function isoToBr(str) {
+  if (!str || !str.includes('-') || str.startsWith('0001')) return '';
+  const [y, m, d] = str.split('-');
+  return `${d}/${m}/${y}`;
 }

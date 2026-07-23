@@ -63,6 +63,7 @@ class PedidoCreate(BaseModel):
     contato: Optional[str] = None
     status: str = "EM TRÂNSITO"
     obs: Optional[str] = None
+    obs_rastreio: Optional[str] = None
 
 
 class PedidoUpdate(BaseModel):
@@ -75,6 +76,7 @@ class PedidoUpdate(BaseModel):
     transportadora: Optional[str] = None
     valor_nf: Optional[float] = None
     valor_frete: Optional[float] = None
+    obs_rastreio: Optional[str] = None
 
 
 class PedidoImportar(BaseModel):
@@ -99,7 +101,7 @@ class PedidoImportar(BaseModel):
     contato: Optional[str] = None
     status: str = "EM TRÂNSITO"
     obs: Optional[str] = None
-
+    obs_rastreio: Optional[str] = None 
 
 class ImportarPayload(BaseModel):
     pedidos: list[PedidoImportar]

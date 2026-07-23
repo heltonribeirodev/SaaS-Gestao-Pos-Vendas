@@ -1,9 +1,14 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
+from typing import Optional
 from passlib.context import CryptContext
 
 from backend.database import get_conn, release_conn, get_cursor
 from backend.models import UsuarioCreate, UsuarioUpdate
-from backend.routes.auth import get_usuario_atual, exige_cargos
+from backend.routes.auth import get_usuario_atual
+from backend.permissoes import (
+    check, PODE_LISTAR_USUARIOS, PODE_CRIAR_USUARIO, PODE_CRIAR_ADMIN,
+    PODE_EDITAR_USUARIO, PODE_EXCLUIR_USUARIO
+)
 
 router = APIRouter(prefix="/api/usuarios", tags=["usuarios"])
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -11,41 +16,65 @@ pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # ── GET /api/usuarios ────────────────────────────────────────────
 @router.get("/")
-async def listar(usuario: dict = Depends(get_usuario_atual)):
+async def listar(
+    q: Optional[str] = Query(None),
+    tipo_filtro: Optional[str] = Query(None, alias="tipo"),
+    ativo: Optional[bool] = Query(None),
+    usuario: dict = Depends(get_usuario_atual),
+):
+    if not check(usuario.get("tipo"), PODE_LISTAR_USUARIOS):
+        raise HTTPException(status_code=403, detail="Sem permissão para listar usuários.")
+
     conn = get_conn()
     try:
+        conditions = ["1=1"]
+        params = []
+
+        if q:
+            conditions.append("(nome ILIKE %s OR email ILIKE %s OR setor ILIKE %s)")
+            params.extend([f"%{q}%"] * 3)
+
+        if tipo_filtro:
+            conditions.append("tipo = %s")
+            params.append(tipo_filtro)
+
+        if ativo is not None:
+            conditions.append("ativo = %s")
+            params.append(ativo)
+
+        sql = f"""
+            SELECT id, nome, email, setor, tipo, ativo, criado_em
+            FROM usuarios
+            WHERE {" AND ".join(conditions)}
+            ORDER BY nome ASC
+        """
+
         with get_cursor(conn) as cur:
-            # Administrador, Gerente de Logística e Operador têm acesso ao painel de administração (podem listar todos)
-            if usuario["tipo"] in ["Administrador", "Gerente-logistica", "Operador"]:
-                cur.execute(
-                    "SELECT id, nome, email, setor, tipo, ativo, criado_em FROM usuarios ORDER BY nome"
-                )
-            else:
-                # Gerente e Vendedor só têm acesso a verem a si mesmos
-                cur.execute(
-                    "SELECT id, nome, email, setor, tipo, ativo, criado_em FROM usuarios WHERE id = %s",
-                    (usuario["id"],)
-                )
-            return [dict(r) for r in cur.fetchall()]
+            cur.execute(sql, params)
+            rows = cur.fetchall()
+
+        return [dict(r) for r in rows]
+
     finally:
         release_conn(conn)
 
 
 # ── POST /api/usuarios ───────────────────────────────────────────
 @router.post("/", status_code=201)
-async def criar(
-    body: UsuarioCreate, 
-    # Apenas Administrador e Gerente de Logística podem criar usuários:
-    usuario_logado: dict = Depends(exige_cargos(["Administrador", "Gerente-logistica"]))
-):
+async def criar(body: UsuarioCreate, usuario: dict = Depends(get_usuario_atual)):
+    tipo_ator = usuario.get("tipo")
+
+    if not check(tipo_ator, PODE_CRIAR_USUARIO):
+        raise HTTPException(status_code=403, detail="Sem permissão para criar usuários.")
+
+    # Só Administrador pode criar outro Administrador
+    if body.tipo == "Administrador" and not check(tipo_ator, PODE_CRIAR_ADMIN):
+        raise HTTPException(status_code=403, detail="Apenas Administradores podem criar outros Administradores.")
+
     if not body.nome or not body.email or not body.senha or not body.setor or not body.tipo:
         raise HTTPException(status_code=400, detail="Preencha todos os campos.")
     if len(body.senha) < 6:
         raise HTTPException(status_code=400, detail="Senha deve ter ao menos 6 caracteres.")
-
-    # REGRA: Apenas um Administrador pode criar outro Administrador
-    if body.tipo == "Administrador" and usuario_logado["tipo"] != "Administrador":
-        raise HTTPException(status_code=403, detail="Apenas um Administrador pode criar outro usuário Administrador.")
 
     conn = get_conn()
     try:
@@ -59,7 +88,6 @@ async def criar(
             row = cur.fetchone()
             conn.commit()
         return dict(row)
-
     except Exception as e:
         conn.rollback()
         if "unique" in str(e).lower():
@@ -71,41 +99,60 @@ async def criar(
 
 # ── PUT /api/usuarios/:id ────────────────────────────────────────
 @router.put("/{usuario_id}")
-async def atualizar(
-    usuario_id: int, 
-    body: UsuarioUpdate, 
-    usuario_logado: dict = Depends(get_usuario_atual)
-):
+async def atualizar(usuario_id: int, body: UsuarioUpdate, usuario: dict = Depends(get_usuario_atual)):
+    tipo_ator     = usuario.get("tipo")
+    editando_si   = usuario["id"] == usuario_id
+    pode_editar   = check(tipo_ator, PODE_EDITAR_USUARIO)
+
+    if not editando_si and not pode_editar:
+        raise HTTPException(status_code=403, detail="Sem permissão para editar outros usuários.")
+
     conn = get_conn()
     try:
         with get_cursor(conn) as cur:
-            # 1. Busca quem é o usuário que está sendo editado
-            cur.execute("SELECT id, tipo FROM usuarios WHERE id = %s", (usuario_id,))
+            cur.execute("SELECT tipo FROM usuarios WHERE id = %s", (usuario_id,))
             alvo = cur.fetchone()
-            if not alvo:
-                raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+        if not alvo:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado.")
 
-            # REGRA 1: Quem pode editar este usuário?
-            is_self = (usuario_logado["id"] == usuario_id)
-            can_edit_others = (usuario_logado["tipo"] in ["Administrador", "Gerente-logistica"])
+        tipo_alvo = alvo["tipo"]
 
-            if not is_self and not can_edit_others:
-                raise HTTPException(status_code=403, detail="Você não tem permissão para editar outros usuários.")
+        # Ninguém exceto outro Admin pode editar um Administrador
+        if tipo_alvo == "Administrador" and tipo_ator != "Administrador":
+            raise HTTPException(
+                status_code=403,
+                detail="Contas de Administrador só podem ser editadas por outro Administrador."
+            )
 
-            # REGRA 2: Ninguém pode editar um Administrador, a não ser um Administrador
-            if alvo["tipo"] == "Administrador" and usuario_logado["tipo"] != "Administrador":
-                raise HTTPException(status_code=403, detail="Apenas um Administrador pode editar a conta de outro Administrador.")
+        # Só Admin pode mudar tipo de usuário
+        tipo_novo = None
+        if body.tipo is not None:
+            if tipo_ator != "Administrador":
+                raise HTTPException(status_code=403, detail="Apenas Administradores podem alterar o tipo de usuário.")
+            # Não rebaixa o último Admin
+            if tipo_alvo == "Administrador" and body.tipo != "Administrador":
+                with get_cursor(conn) as cur:
+                    cur.execute("SELECT COUNT(*) as total FROM usuarios WHERE tipo = 'Administrador' AND ativo = TRUE")
+                    if cur.fetchone()["total"] <= 1:
+                        raise HTTPException(status_code=400, detail="Não é possível rebaixar o único Administrador.")
+            tipo_novo = body.tipo
 
-            hash_senha = None
-            if body.senha:
-                if len(body.senha) < 6:
-                    raise HTTPException(status_code=400, detail="Senha deve ter ao menos 6 caracteres.")
-                hash_senha = pwd_ctx.hash(body.senha)
+        # Só Admin e GL podem ativar/desativar
+        ativo_novo = None
+        if body.ativo is not None:
+            if not check(tipo_ator, PODE_EDITAR_USUARIO):
+                raise HTTPException(status_code=403, detail="Sem permissão para ativar/desativar usuários.")
+            if editando_si:
+                raise HTTPException(status_code=400, detail="Você não pode desativar a própria conta.")
+            ativo_novo = body.ativo
 
-            # REGRA 3: Usuários comuns não podem alterar o próprio Cargo e Status de Atividade
-            tipo_final  = body.tipo  if can_edit_others else None
-            ativo_final = body.ativo if can_edit_others else None
+        hash_senha = None
+        if body.senha:
+            if len(body.senha) < 6:
+                raise HTTPException(status_code=400, detail="Senha deve ter ao menos 6 caracteres.")
+            hash_senha = pwd_ctx.hash(body.senha)
 
+        with get_cursor(conn) as cur:
             cur.execute("""
                 UPDATE usuarios SET
                     nome          = COALESCE(%s, nome),
@@ -120,15 +167,14 @@ async def atualizar(
             """, (
                 body.nome,
                 body.email.lower() if body.email else None,
-                hash_senha,
-                body.setor,
-                tipo_final,
-                ativo_final,
+                hash_senha, body.setor, tipo_novo, ativo_novo,
                 usuario_id
             ))
             row = cur.fetchone()
             conn.commit()
 
+        if not row:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado.")
         return dict(row)
 
     except HTTPException:
@@ -144,32 +190,38 @@ async def atualizar(
 
 # ── DELETE /api/usuarios/:id ─────────────────────────────────────
 @router.delete("/{usuario_id}")
-async def deletar(
-    usuario_id: int, 
-    # Apenas Administrador e Gerente de Logística podem deletar usuários:
-    usuario_logado: dict = Depends(exige_cargos(["Administrador", "Gerente-logistica"]))
-):
-    if usuario_logado["id"] == usuario_id:
-        raise HTTPException(status_code=400, detail="Você não pode excluir o próprio usuário.")
+async def deletar(usuario_id: int, usuario: dict = Depends(get_usuario_atual)):
+    tipo_ator = usuario.get("tipo")
+
+    if not check(tipo_ator, PODE_EXCLUIR_USUARIO):
+        raise HTTPException(status_code=403, detail="Sem permissão para excluir usuários.")
+
+    if usuario["id"] == usuario_id:
+        raise HTTPException(status_code=400, detail="Você não pode excluir a própria conta.")
 
     conn = get_conn()
     try:
         with get_cursor(conn) as cur:
             cur.execute("SELECT tipo FROM usuarios WHERE id = %s", (usuario_id,))
-            target = cur.fetchone()
-            if not target:
-                raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+            alvo = cur.fetchone()
+        if not alvo:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado.")
 
-            # REGRA: Ninguém pode excluir um Administrador, a não ser outro Administrador
-            if target["tipo"] == "Administrador":
-                if usuario_logado["tipo"] != "Administrador":
-                    raise HTTPException(status_code=403, detail="Apenas um Administrador pode excluir um usuário Administrador.")
-                
-                # Verifica se não é o último admin
+        # Ninguém exceto outro Admin pode excluir um Administrador
+        if alvo["tipo"] == "Administrador" and tipo_ator != "Administrador":
+            raise HTTPException(
+                status_code=403,
+                detail="Contas de Administrador não podem ser excluídas por outros perfis."
+            )
+
+        # Não excluir o último Admin
+        if alvo["tipo"] == "Administrador":
+            with get_cursor(conn) as cur:
                 cur.execute("SELECT COUNT(*) as total FROM usuarios WHERE tipo = 'Administrador' AND ativo = TRUE")
                 if cur.fetchone()["total"] <= 1:
-                    raise HTTPException(status_code=400, detail="Não é possível excluir o único administrador ativo no sistema.")
+                    raise HTTPException(status_code=400, detail="Não é possível excluir o único Administrador do sistema.")
 
+        with get_cursor(conn) as cur:
             cur.execute("DELETE FROM usuarios WHERE id = %s", (usuario_id,))
             conn.commit()
 

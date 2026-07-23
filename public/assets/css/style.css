@@ -17,6 +17,11 @@
   --border: #DDE6F5;
   --text: #1C3557;
   --muted: #6B7FA3;
+
+  --blue: #2563EB;
+  --blue-pale: #EFF6FF;
+
+
   --sidebar-w: 68px;
 }
 
@@ -606,7 +611,7 @@ body {
 /* ── PAINEL DE SUPORTE AO OPERADOR ──────────── */
 .alert-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -660,7 +665,7 @@ body {
 }
 
 .ac-hoje.is-alert {
-  border-color: var(--amber);
+  border-color: #f59f0bd5;
   background: var(--amber-pale);
 }
 
@@ -675,17 +680,53 @@ body {
 }
 
 .ac-atraso.is-alert {
-  border-color: var(--red);
-  background: var(--red-pale);
+  border-color: #F59E0B;
+  background: #fcf70021;
   animation: alert-pulse 2s infinite;
 }
 
 .ac-atraso.is-alert .alert-val,
 .ac-atraso.is-alert .alert-arrow {
-  color: #991B1B;
+  color: #F59E0B;
 }
 
 .ac-atraso.is-alert .alert-label {
+  color: #F59E0B;
+  opacity: .85;
+}
+
+.ac-rota.is-alert {
+  border-color: var(--blue);
+  background: var(--blue-pale);
+  animation: alert-pulse 2s infinite;
+}
+
+.ac-rota.is-alert .alert-val,
+.ac-rota.is-alert .alert-arrow {
+  color: #1E40AF;
+}
+
+.ac-rota.is-alert .alert-label {
+  color: #1E40AF;
+  opacity: .85;
+}
+
+
+
+
+
+.ac-retido.is-alert {
+  border-color: var(--red);
+  background: var(--red-pale);
+  animation: alert-pulse 2s infinite;
+}
+
+.ac-retido.is-alert .alert-val,
+.ac-retido.is-alert .alert-arrow {
+  color: #991B1B;
+}
+
+.ac-retido.is-alert .alert-label {
   color: #991B1B;
   opacity: .85;
 }
@@ -924,11 +965,11 @@ select.status-edit.bT {
 }
 
 select.status-edit.bR {
-  background: var(--orange-pale);
-  color: #C24E00;
+  background: var(--blue-pale);
+  color: #001A3C;
 }
 
-select.status-edit.bC {
+select.status-edit.bF {
   background: var(--red-pale);
   color: #991B1B;
 }
@@ -1098,6 +1139,14 @@ select.fsel {
   outline: none;
   cursor: pointer;
   min-width: 140px;
+}
+
+#f-transp {
+  max-width: 250px; /* Você pode ajustar esse valor para mais ou para menos */
+  width: 100%; /* Garante que ele ocupe o espaço disponível até o limite do max-width */
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .fsearch {
