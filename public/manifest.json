@@ -1,8 +1,8 @@
 {
-  "name": "ForteCare — Gestão Pós Vendas",
+  "name": "ForteCare - Gestão Pós Vendas",
   "short_name": "ForteCare",
   "description": "Sistema de Gestão Pós Vendas ForteCare",
-  "start_url": "/index.html",
+  "start_url": "/login.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0056b3",
@@ -10,7 +10,7 @@
   "icons": [
     {
       "src": "assets/images/ForteCare-F-colors.png",
-      "sizes": "192x192 512x512",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     }

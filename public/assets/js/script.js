@@ -503,16 +503,69 @@ function renderChartsEngine(data) {
     }).join('');
   }
 
-  const vendData = {};
-  data.forEach(i => { vendData[i.vendedor] = (vendData[i.vendedor] || 0) + i.valorNF; });
-  const ctxVend = document.getElementById('c-vend');
-  if (ctxVend) {
-    chartVendInstance = new Chart(ctxVend, {
-      type: 'bar',
-      data: { labels: Object.keys(vendData), datasets: [{ label: 'Faturamento', data: Object.values(vendData), backgroundColor: colors.blue, borderRadius: 6 }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { display: false }, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } } }
-    });
-  }
+ const vendData = {};
+data.forEach(i => { vendData[i.vendedor] = (vendData[i.vendedor] || 0) + i.valorC; });
+
+const ctxVend = document.getElementById('c-vend');
+if (ctxVend) {
+  chartVendInstance = new Chart(ctxVend, {
+    type: 'bar',
+    data: { 
+      labels: Object.keys(vendData), 
+      datasets: [{ 
+        label: 'Faturamento', 
+        data: Object.values(vendData), 
+        backgroundColor: colors.blue, 
+        borderRadius: 6 
+      }] 
+    },
+    options: { 
+      indexAxis: 'y', // Define o gráfico como horizontal
+      responsive: true, 
+      maintainAspectRatio: false, 
+      plugins: { 
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              let label = context.dataset.label || '';
+              if (label) {
+                label += ': ';
+              }
+              // O valor numérico agora está em context.parsed.x
+              if (context.parsed.x !== null) {
+                label += new Intl.NumberFormat('pt-BR', { 
+                  style: 'currency', 
+                  currency: 'BRL' 
+                }).format(context.parsed.x);
+              }
+              return label;
+            }
+          }
+        }
+      }, 
+      scales: { 
+        // Eixo Y agora recebe os nomes (labels)
+        y: { 
+          grid: { display: false }, 
+          ticks: { font: { size: 10 } } 
+        }, 
+        // Eixo X agora recebe os valores (R$)
+        x: { 
+          ticks: { 
+            font: { size: 10 },
+            callback: function(value, index, values) {
+              return new Intl.NumberFormat('pt-BR', { 
+                style: 'currency', 
+                currency: 'BRL' 
+              }).format(value);
+            }
+          } 
+        } 
+      } 
+    }
+  });
+}
 
   const transpData = {};
   data.forEach(i => { transpData[i.transportadora] = (transpData[i.transportadora] || 0) + 1; });
