@@ -10,24 +10,6 @@ class DeParaCreate(BaseModel):
     nome_planilha: str
     usuario_id: int
 
-def ensure_table():
-    conn = get_conn()
-    try:
-        with get_cursor(conn) as cur:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS vendedor_de_para (
-                    id            SERIAL PRIMARY KEY,
-                    nome_planilha TEXT NOT NULL UNIQUE,
-                    usuario_id    INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-                    criado_em     TIMESTAMP DEFAULT NOW()
-                )
-            """)
-        conn.commit()
-    finally:
-        release_conn(conn)
-
-ensure_table()
-
 # ── GET /api/vendedores/meu-nome ─────────────────────────────────
 # Retorna o nome_planilha vinculado ao usuário logado (se for Vendedor)
 @router.get("/meu-nome")

@@ -173,6 +173,33 @@ async def me(usuario: dict = Depends(get_usuario_atual)):
     return {"usuario": usuario}
 
 
+@router.post("/renovar")
+async def renovar_token(response: Response, usuario: dict = Depends(get_usuario_atual)):
+    """Renova o token JWT antes de expirar — chamado automaticamente pelo frontend."""
+    conn = get_conn()
+    try:
+        # Busca dados frescos do banco para garantir que o usuário ainda existe e está ativo
+        with get_cursor(conn) as cur:
+            cur.execute(
+                "SELECT id, nome, email, setor, tipo, ativo FROM usuarios WHERE id = %s AND ativo = TRUE LIMIT 1",
+                (usuario["id"],)
+            )
+            user = cur.fetchone()
+
+        if not user:
+            raise HTTPException(status_code=401, detail="Usuário inativo ou não encontrado.")
+
+        token = criar_token(dict(user))
+        response.set_cookie(
+            key="fc_token", value=token,
+            httponly=True, samesite="lax",
+            max_age=EXPIRES * 3600,
+        )
+        return {"ok": True, "token": token}
+    finally:
+        release_conn(conn)
+
+
 @router.post("/esqueci-senha")
 async def esqueci_senha(body: EsqueciSenhaInput):
     conn = get_conn()

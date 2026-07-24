@@ -1178,10 +1178,8 @@ function renderVendedores() {
         <div class="perf-stats">
           <div class="ps-block" style="background:var(--teal-pale);color:#006B4C"><div class="ps-val">${v.noPrazo}</div><div class="ps-lbl">No Prazo</div></div>
           <div class="ps-block" style="background:var(--red-pale);color:#991B1B"><div class="ps-val">${v.atraso}</div><div class="ps-lbl">Atraso</div></div>
-          <div class="ps-block" style="background:var(--blue-pale);color:var(--blue)"><div class="ps-val">${sla}%</div><div class="ps-lbl">SLA</div></div>
+          <div class="ps-block" style="background:var(--blue-pale);color:var(--blue)"><div class="ps-val">${sla}%</div><div class="ps-lbl">N. SEVIÇO</div></div>
         </div>
-        <div style="background:var(--bg); border-radius:8px; padding:8px 10px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;"><span style="font-size:11px;color:var(--muted)">TKT Médio:</span><strong style="font-size:13px;color:var(--navy)">${formatMoney(ticketMedio)}</strong></div>
-        <div class="pbar-wrap"><div class="pbar-top"><span class="pbar-lbl">Performance vs Top Player</span><strong>${pctVolumeTotal}%</strong></div><div class="pbar-bg"><div class="pbar-fill" style="width:${pctVolumeTotal}%; background:var(--blue)"></div></div></div>
         <div style="margin-top:14px; font-size:12px; display:flex; flex-direction:column; gap:4px; border-top:1px solid var(--border); padding-top:10px;">
           <div style="display:flex; justify-content:space-between;"><span style="color:var(--muted)">Faturamento:</span><strong style="color:var(--teal)">${formatMoney(v.faturamento)}</strong></div>
           <div style="display:flex; justify-content:space-between;"><span style="color:var(--muted)">Total Frete:</span><strong style="color:var(--text)">${formatMoney(v.frete)}</strong></div>
