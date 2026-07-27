@@ -784,7 +784,7 @@ body {
 /* ── CHARTS ──────────────────────────────── */
 .charts-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -805,8 +805,8 @@ body {
 
 .chart-box {
   position: relative;
-  height: 190px;
-  z-index: 0;
+  height: 250px;
+  z-index: 0;;
 }
 
 .status-legend {

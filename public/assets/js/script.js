@@ -552,25 +552,124 @@ function renderChartsEngine(data) {
           }
         }, 
         scales: { 
-          y: { 
-            grid: { display: false }, 
-            ticks: { font: { size: 10 } } 
-          }, 
-          x: { 
-            ticks: { 
-              font: { size: 10 },
-              callback: function(value, index, values) {
-                return new Intl.NumberFormat('pt-BR', { 
-                  style: 'currency', 
-                  currency: 'BRL' 
-                }).format(value);
-              }
-            } 
-          } 
-        } 
+  y: { 
+    grid: { display: false }, 
+    ticks: { 
+      font: { size: 10 },
+      crossAlign: 'far', // Força o alinhamento do texto à extrema esquerda
+      callback: function(value) {
+        let label = this.getLabelForValue(value) || '';
+        const limiteCaracteres = 15; // Ajuste conforme o espaço em tela
+        
+        // Aplica o corte e adiciona reticências se exceder o limite
+        if (label.length > limiteCaracteres) {
+          return label.substring(0, limiteCaracteres) + '...';
+        }
+        return label;
+      }
+    } 
+  }, 
+  x: { 
+    ticks: { 
+      font: { size: 10 },
+      callback: function(value, index, values) {
+        return new Intl.NumberFormat('pt-BR', { 
+          style: 'currency', 
+          currency: 'BRL' 
+        }).format(value);
+      }
+    } 
+  } 
+}
       }
     });
   }
+
+  const transpData = {};
+
+// 1. Agrupando os valores pela chave 'transportadora'
+data.forEach(i => { 
+  // O 'if' previne que transportadoras vazias ou indefinidas quebrem o gráfico
+  if (i.transportadora) {
+    const nomeTransp = i.transportadora.trim();
+    transpData[nomeTransp] = (transpData[nomeTransp] || 0) + (i.valorC || 0); 
+  }
+});
+
+// 2. Buscando o novo elemento no DOM (Certifique-se de ter id="c-transp" no seu HTML)
+const ctxTransp = document.getElementById('c-transp');
+let chartTranspInstance; // Declarando a instância do gráfico
+
+if (ctxTransp) {
+  chartTranspInstance = new Chart(ctxTransp, {
+    type: 'bar',
+    data: { 
+      labels: Object.keys(transpData), 
+      datasets: [{ 
+        label: 'Valor por Transportadora', // Ajuste a label conforme necessário
+        data: Object.values(transpData), 
+        backgroundColor: colors.blue, // Requer que o objeto 'colors' esteja declarado no seu script
+        borderRadius: 6 
+      }] 
+    },
+    options: { 
+      indexAxis: 'y', // Mantém o gráfico em barras horizontais
+      responsive: true, 
+      maintainAspectRatio: false, 
+      plugins: { 
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              let label = context.dataset.label || '';
+              if (label) {
+                label += ': ';
+              }
+              if (context.parsed.x !== null) {
+                // Formatação monetária (BRL) para o tooltip
+                label += new Intl.NumberFormat('pt-BR', { 
+                  style: 'currency', 
+                  currency: 'BRL' 
+                }).format(context.parsed.x);
+              }
+              return label;
+            }
+          }
+        }
+      }, 
+      scales: { 
+  y: { 
+    grid: { display: false }, 
+    ticks: { 
+      font: { size: 10 },
+      crossAlign: 'far', // Força o alinhamento do texto à extrema esquerda
+      callback: function(value) {
+        let label = this.getLabelForValue(value) || '';
+        const limiteCaracteres = 15; // Ajuste conforme o espaço em tela
+        
+        // Aplica o corte e adiciona reticências se exceder o limite
+        if (label.length > limiteCaracteres) {
+          return label.substring(0, limiteCaracteres) + '...';
+        }
+        return label;
+      }
+    } 
+  }, 
+  x: { 
+    ticks: { 
+      font: { size: 10 },
+      callback: function(value, index, values) {
+        return new Intl.NumberFormat('pt-BR', { 
+          style: 'currency', 
+          currency: 'BRL' 
+        }).format(value);
+      }
+    } 
+  } 
+}
+    }
+  });
+}
 
   // Renderiza o mapa coroplético de UF
   renderMapUF(data);
@@ -608,7 +707,7 @@ async function renderMapUF(data) {
 
     mapInstance = L.map('map-uf', {
       center: [-14.2350, -51.9253], // Centro do Brasil
-      zoom: 3,
+      zoom: 2,
       zoomControl: false,
       attributionControl: false
     });
