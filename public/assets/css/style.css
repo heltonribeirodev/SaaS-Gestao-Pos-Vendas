@@ -665,70 +665,52 @@ body {
 }
 
 .ac-hoje.is-alert {
-  border-color: #f59f0bd5;
-  background: var(--amber-pale);
+  background-color: #FFFBEB;
+  border-color: #FBBF24;
 }
-
+.ac-hoje.is-alert .alert-ic,
 .ac-hoje.is-alert .alert-val,
-.ac-hoje.is-alert .alert-arrow {
-  color: #92660A;
+.ac-hoje.is-alert .alert-label,
+.ac-hoje.is-alert .alert-action {
+  color: #92400E; /* Contraste mais escuro para legibilidade */
 }
 
-.ac-hoje.is-alert .alert-label {
-  color: #92660A;
-  opacity: .85;
-}
-
+/* Atraso: Atenção Alta (Laranja) */
 .ac-atraso.is-alert {
-  border-color: #F59E0B;
-  background: #fcf70021;
-  animation: alert-pulse 2s infinite;
+  background-color: #FFF7ED;
+  border-color: #F97316;
 }
-
+.ac-atraso.is-alert .alert-ic,
 .ac-atraso.is-alert .alert-val,
-.ac-atraso.is-alert .alert-arrow {
-  color: #F59E0B;
+.ac-atraso.is-alert .alert-label,
+.ac-atraso.is-alert .alert-action {
+  color: #C2410C;
 }
 
-.ac-atraso.is-alert .alert-label {
-  color: #F59E0B;
-  opacity: .85;
-}
-
+/* Rota: Informativo/Operacional (Azul) */
 .ac-rota.is-alert {
-  border-color: var(--blue);
-  background: var(--blue-pale);
-  animation: alert-pulse 2s infinite;
+  background-color: #EFF6FF;
+  border-color: #3B82F6;
+  /* Animação removida: status operacional não deve competir por atenção urgente */
 }
-
+.ac-rota.is-alert .alert-ic,
 .ac-rota.is-alert .alert-val,
-.ac-rota.is-alert .alert-arrow {
+.ac-rota.is-alert .alert-label,
+.ac-rota.is-alert .alert-action {
   color: #1E40AF;
 }
 
-.ac-rota.is-alert .alert-label {
-  color: #1E40AF;
-  opacity: .85;
-}
-
-
-
-
-
+/* Retido: Crítico/Bloqueio (Vermelho) */
 .ac-retido.is-alert {
-  border-color: var(--red);
-  background: var(--red-pale);
-  animation: alert-pulse 2s infinite;
+  background-color: #FEF2F2;
+  border-color: #EF4444;
+  animation: alert-pulse-subtle 2s infinite; /* Pulso mais sutil para não irritar o usuário */
 }
-
+.ac-retido.is-alert .alert-ic,
 .ac-retido.is-alert .alert-val,
-.ac-retido.is-alert .alert-arrow {
+.ac-retido.is-alert .alert-label,
+.ac-retido.is-alert .alert-action {
   color: #991B1B;
-}
-
-.ac-retido.is-alert .alert-label {
-  color: #991B1B;
-  opacity: .85;
 }
 
 @keyframes alert-pulse {
@@ -824,6 +806,7 @@ body {
 .chart-box {
   position: relative;
   height: 190px;
+  z-index: 0;
 }
 
 .status-legend {
@@ -898,6 +881,11 @@ body {
   color: #991B1B;
 }
 
+.badge.bF {
+  background: var(--red-pale);
+  color: #991B1B;
+}
+
 .badge.bE .bd {
   background: var(--teal);
 }
@@ -913,6 +901,10 @@ body {
 }
 
 .badge.bC .bd {
+  background: var(--red);
+}
+
+.badge.bF .bd {
   background: var(--red);
 }
 

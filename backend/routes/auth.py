@@ -30,6 +30,10 @@ class RedefinirSenhaInput(BaseModel):
     token: str
     nova_senha: str
 
+class MeuPerfilInput(BaseModel):
+    nome: str | None = None
+    nova_senha: str | None = None
+
 
 # =========================================================
 # FUNÇÕES AUXILIARES DE AUTENTICAÇÃO
@@ -149,11 +153,12 @@ async def login(body: LoginInput, response: Response):
         )
 
         usuario = {
-            "id":    user["id"],
-            "nome":  user["nome"],
-            "email": user["email"],
-            "setor": user["setor"],
-            "tipo":  user["tipo"],
+            "id":             user["id"],
+            "nome":           user["nome"],
+            "email":          user["email"],
+            "setor":          user["setor"],
+            "tipo":           user["tipo"],
+            "primeiro_acesso": user.get("primeiro_acesso", True),
         }
 
         return {"ok": True, "token": token, "usuario": usuario}
@@ -229,6 +234,54 @@ async def esqueci_senha(body: EsqueciSenhaInput):
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail="Erro interno ao processar a solicitação.")
+    finally:
+        release_conn(conn)
+
+
+@router.put("/meu-perfil")
+async def meu_perfil(body: MeuPerfilInput, usuario: dict = Depends(get_usuario_atual)):
+    """Permite ao usuário logado alterar o próprio nome e/ou senha.
+    Ao alterar a senha, marca primeiro_acesso = FALSE automaticamente."""
+
+    if not body.nome and not body.nova_senha:
+        raise HTTPException(status_code=400, detail="Informe ao menos um campo para atualizar.")
+
+    if body.nova_senha and len(body.nova_senha) < 6:
+        raise HTTPException(status_code=400, detail="A senha deve ter no mínimo 6 caracteres.")
+
+    conn = get_conn()
+    try:
+        with get_cursor(conn) as cur:
+            if body.nome and body.nova_senha:
+                hash_senha = pwd_ctx.hash(body.nova_senha)
+                cur.execute(
+                    """UPDATE usuarios
+                       SET nome = %s, senha_hash = %s, primeiro_acesso = FALSE, atualizado_em = NOW()
+                       WHERE id = %s""",
+                    (body.nome.strip(), hash_senha, usuario["id"])
+                )
+            elif body.nova_senha:
+                hash_senha = pwd_ctx.hash(body.nova_senha)
+                cur.execute(
+                    """UPDATE usuarios
+                       SET senha_hash = %s, primeiro_acesso = FALSE, atualizado_em = NOW()
+                       WHERE id = %s""",
+                    (hash_senha, usuario["id"])
+                )
+            else:
+                cur.execute(
+                    """UPDATE usuarios
+                       SET nome = %s, atualizado_em = NOW()
+                       WHERE id = %s""",
+                    (body.nome.strip(), usuario["id"])
+                )
+            conn.commit()
+
+        return {"ok": True, "detail": "Perfil atualizado com sucesso."}
+
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao atualizar perfil: {str(e)}")
     finally:
         release_conn(conn)
 

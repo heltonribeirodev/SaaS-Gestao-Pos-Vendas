@@ -12,9 +12,13 @@
   <link rel="icon" type="image/png" href="assets/images/ForteCare-F-colors.png">
 
   <link rel="stylesheet" href="assets/css/style.css">
-  
+
   <!-- Font Awesome CDN adicionado -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- Configurações para PWA -->
   <link rel="manifest" href="manifest.json">
@@ -53,7 +57,7 @@
       </li>
     </ul>
     <div class="sb-footer">
-      <div class="user-pill" id="user-pill" data-tooltip="Helton Ribeiro — Administrador" onclick="logout()">
+      <div class="user-pill" id="user-pill" data-tooltip="Helton Ribeiro — Administrador" onclick="abrirPerfilModal()">
         <div class="user-av" id="user-av">HR</div>
         <div>
           <span class="user-name" id="user-name">Helton Ribeiro</span>
@@ -67,16 +71,16 @@
     <header class="topbar">
       <div class="topbar-left">
         <div class="topbar-title" id="top-title">Dashboard</div>
-        <div class="topbar-hint">ForteCare · Controle de Expedições e Rastreamento</div>
+        <div class="topbar-hint">ForteCare · Gestão de Pós Vendas</div>
       </div>
       <div class="topbar-right">
-        <button class="btn btn-ghost" onclick="exportCSV()"><i class="fa-solid fa-download"></i> Exportar CSV</button>
+        <button class="btn btn-ghost" onclick="exportCSV()"><i class="fa-solid fa-download"></i> Exportar Planilha</button>
         <button class="btn btn-ghost" onclick="openManualModal()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-          Incluir Manual
+          Incluir Nota Manual
         </button>
         <button class="btn btn-primary" onclick="openModal()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -203,13 +207,15 @@
             <div class="status-legend" id="status-legend"></div>
           </div>
           <div class="chart-card">
-            <div class="chart-title">Custo Frete por Vendedor</div>
+            <div class="chart-title"> Custo de Frete por Vendedor</div>
             <div class="chart-box"><canvas id="c-vend"></canvas></div>
           </div>
           <div class="chart-card">
-            <div class="chart-title">Entregas por Transportadora</div>
-            <div class="chart-box"><canvas id="c-transp"></canvas></div>
-          </div>
+                <div class="chart-title">Distribuição Geográfica (UF)</div>
+                <div class="chart-box" style="height: 280px; position: relative;">
+                  <div id="map-uf" style="width: 100%; height: 100%; border-radius: 8px;"></div>
+                </div>
+              </div>
         </div>
 
         <div class="t-card">
@@ -386,7 +392,7 @@
         <div class="page-header">
           <div>
             <div class="page-title">Transportadoras</div>
-            <div class="page-sub">Desempenho por operadora logística</div>
+            <div class="page-sub">Desempenho individualpor transportadora</div>
           </div>
         </div>
 
@@ -640,6 +646,60 @@
         </div>
       </div>
     </div>
+
+    <!-- ── MODAL PERFIL DO USUÁRIO ──────────────────────────────── -->
+    <div class="overlay" id="perfil-overlay" onclick="fecharPerfilModal(event)">
+      <div class="modal-box" style="max-width:400px" onclick="event.stopPropagation()">
+
+        <!-- Cabeçalho com avatar -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:20px">
+          <div id="perfil-av-grande"
+            style="width:56px;height:56px;border-radius:50%;background:var(--navy);color:#fff;font-size:22px;font-weight:800;display:flex;align-items:center;justify-content:center">
+            ?
+          </div>
+          <div class="modal-h" style="margin:0;text-align:center" id="perfil-titulo">Meu Perfil</div>
+          <div class="modal-sh" style="margin:0;text-align:center" id="perfil-cargo">–</div>
+        </div>
+
+        <!-- Nome -->
+        <div class="login-field">
+          <label>Nome completo</label>
+          <input type="text" id="perfil-nome" placeholder="Seu nome">
+        </div>
+
+        <!-- Nova senha -->
+        <div class="login-field" style="margin-top:4px">
+          <label>Nova senha <span style="font-weight:400;color:var(--muted);font-size:11px">(deixe em branco para não alterar)</span></label>
+          <input type="password" id="perfil-senha" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+        </div>
+
+        <!-- Confirmar senha (aparece ao digitar) -->
+        <div class="login-field" id="perfil-confirma-wrap" style="display:none">
+          <label>Confirmar nova senha</label>
+          <input type="password" id="perfil-confirma" placeholder="Repita a nova senha" autocomplete="new-password">
+        </div>
+
+        <!-- Feedback -->
+        <div class="login-error" id="perfil-error" style="display:none"></div>
+        <div id="perfil-success"
+          style="display:none;background:#d1e7dd;color:#0f5132;border:1px solid #badbcc;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:600;margin-bottom:12px">
+        </div>
+
+        <!-- Ações -->
+        <div class="modal-acts" style="justify-content:space-between">
+          <button class="btn" onclick="logout()"
+            style="background:#FEF2F2;color:#991B1B;border:1px solid #fecaca;font-weight:700">
+            <i class="fa-solid fa-right-from-bracket" style="margin-right:5px"></i>Sair
+          </button>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost" onclick="fecharPerfilModal()">Cancelar</button>
+            <button class="btn btn-primary" id="perfil-btn-salvar" onclick="salvarPerfil()">Salvar</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <!-- ── FIM MODAL PERFIL ──────────────────────────────────────── -->
 
     <div class="toast" id="toast"></div>
 

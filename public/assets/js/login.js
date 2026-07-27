@@ -46,7 +46,13 @@ async function tentarLogin() {
     sessionStorage.setItem('fortecare_token',   data.token);
 
     btn.innerText = 'Carregando…';
-    window.location.href = 'index.html';
+
+    // Se for o primeiro acesso, força troca de senha antes de entrar
+    if (data.usuario.primeiro_acesso) {
+      window.location.href = 'nova-senha.html?first=true';
+    } else {
+      window.location.href = 'index.html';
+    }
 
   } catch (err) {
     errorEl.innerText     = 'Não foi possível conectar ao servidor.';

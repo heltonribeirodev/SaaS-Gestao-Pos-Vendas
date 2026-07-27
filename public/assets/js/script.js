@@ -11,6 +11,16 @@ let currentUser = null;
 
 const STATUS_OPTIONS = ['EM TRÂNSITO', 'EM ROTA DE ENTREGA','ENTREGUE','RETIDO FISCALIZAÇÃO'];
 
+// Variáveis Globais dos Gráficos e Mapa
+let chartStatusInstance = null;
+let chartVendInstance = null;
+let mapInstance = null;
+let geojsonLayer = null;
+const BRASIL_GEOJSON_URL = 'https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson';
+let brasilGeoData = null;
+
+const colors = { blue: '#1B6FD5', teal: '#00A878', amber: '#F59E0B', orange: '#F97316', red: '#EF4444', muted: '#6B7FA3', border: '#DDE6F5', navy: '#002B5C' };
+
 // Função base para todas as requisições API (já inclui os cookies de sessão do JWT)
 async function apiFetch(endpoint, options = {}) {
   options.credentials = 'include';
@@ -80,7 +90,7 @@ function brToIso(str) {
 }
 
 function isoToBr(str) {
-  if (!str || !str.includes('-')) return '';
+  if (!str || !str.includes('-') || str.startsWith('0001')) return '';
   const [y, m, d] = str.split('-');
   return `${d}/${m}/${y}`;
 }
@@ -110,10 +120,6 @@ function excelToBrDate(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-let chartStatusInstance = null;
-let chartVendInstance = null;
-let chartTranspInstance = null;
-const colors = { blue: '#1B6FD5', teal: '#00A878', amber: '#F59E0B', orange: '#F97316', red: '#EF4444', muted: '#6B7FA3', border: '#DDE6F5', navy: '#002B5C' };
 const formatMoney = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
 function getBadgeClass(status) {
@@ -477,10 +483,11 @@ function renderDashboard() {
 }
 
 function renderChartsEngine(data) {
+  // Destruir instâncias antigas de Chart.js
   if (chartStatusInstance) chartStatusInstance.destroy();
   if (chartVendInstance) chartVendInstance.destroy();
-  if (chartTranspInstance) chartTranspInstance.destroy();
 
+  // Gráfico Doughnut (Status)
   const statusCounts = { 'ENTREGUE': 0, 'EM TRÂNSITO': 0, 'EM ROTA DE ENTREGA': 0, 'RETIDO FISCALIZAÇÃO': 0 };
   data.forEach(i => {
     let s = i.status.toUpperCase();
@@ -503,80 +510,156 @@ function renderChartsEngine(data) {
     }).join('');
   }
 
- const vendData = {};
-data.forEach(i => { vendData[i.vendedor] = (vendData[i.vendedor] || 0) + i.valorC; });
+  // Gráfico Bar (Faturamento Vendedor)
+  const vendData = {};
+  data.forEach(i => { vendData[i.vendedor] = (vendData[i.vendedor] || 0) + i.valorC; });
 
-const ctxVend = document.getElementById('c-vend');
-if (ctxVend) {
-  chartVendInstance = new Chart(ctxVend, {
-    type: 'bar',
-    data: { 
-      labels: Object.keys(vendData), 
-      datasets: [{ 
-        label: 'Faturamento', 
-        data: Object.values(vendData), 
-        backgroundColor: colors.blue, 
-        borderRadius: 6 
-      }] 
-    },
-    options: { 
-      indexAxis: 'y', // Define o gráfico como horizontal
-      responsive: true, 
-      maintainAspectRatio: false, 
-      plugins: { 
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              let label = context.dataset.label || '';
-              if (label) {
-                label += ': ';
+  const ctxVend = document.getElementById('c-vend');
+  if (ctxVend) {
+    chartVendInstance = new Chart(ctxVend, {
+      type: 'bar',
+      data: { 
+        labels: Object.keys(vendData), 
+        datasets: [{ 
+          label: 'Faturamento', 
+          data: Object.values(vendData), 
+          backgroundColor: colors.blue, 
+          borderRadius: 6 
+        }] 
+      },
+      options: { 
+        indexAxis: 'y',
+        responsive: true, 
+        maintainAspectRatio: false, 
+        plugins: { 
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                let label = context.dataset.label || '';
+                if (label) {
+                  label += ': ';
+                }
+                if (context.parsed.x !== null) {
+                  label += new Intl.NumberFormat('pt-BR', { 
+                    style: 'currency', 
+                    currency: 'BRL' 
+                  }).format(context.parsed.x);
+                }
+                return label;
               }
-              // O valor numérico agora está em context.parsed.x
-              if (context.parsed.x !== null) {
-                label += new Intl.NumberFormat('pt-BR', { 
-                  style: 'currency', 
-                  currency: 'BRL' 
-                }).format(context.parsed.x);
-              }
-              return label;
             }
           }
-        }
-      }, 
-      scales: { 
-        // Eixo Y agora recebe os nomes (labels)
-        y: { 
-          grid: { display: false }, 
-          ticks: { font: { size: 10 } } 
         }, 
-        // Eixo X agora recebe os valores (R$)
-        x: { 
-          ticks: { 
-            font: { size: 10 },
-            callback: function(value, index, values) {
-              return new Intl.NumberFormat('pt-BR', { 
-                style: 'currency', 
-                currency: 'BRL' 
-              }).format(value);
-            }
+        scales: { 
+          y: { 
+            grid: { display: false }, 
+            ticks: { font: { size: 10 } } 
+          }, 
+          x: { 
+            ticks: { 
+              font: { size: 10 },
+              callback: function(value, index, values) {
+                return new Intl.NumberFormat('pt-BR', { 
+                  style: 'currency', 
+                  currency: 'BRL' 
+                }).format(value);
+              }
+            } 
           } 
         } 
-      } 
-    }
-  });
-}
-
-  const transpData = {};
-  data.forEach(i => { transpData[i.transportadora] = (transpData[i.transportadora] || 0) + 1; });
-  const ctxTransp = document.getElementById('c-transp');
-  if (ctxTransp) {
-    chartTranspInstance = new Chart(ctxTransp, {
-      type: 'polarArea',
-      data: { labels: Object.keys(transpData), datasets: [{ data: Object.values(transpData), backgroundColor: [colors.blue + 'CC', colors.teal + 'CC', colors.amber + 'CC', colors.orange + 'CC'] }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { r: { ticks: { display: false } } } }
+      }
     });
   }
+
+  // Renderiza o mapa coroplético de UF
+  renderMapUF(data);
+}
+
+// ═══════════════════════════════════════════════
+// MAPA GEOGRÁFICO DE ENVIOS POR UF (LEAFLET)
+// ═══════════════════════════════════════════════
+async function renderMapUF(data) {
+  // 1. Agrupar total de envios por UF
+  const ufCounts = {};
+  data.forEach(i => {
+    if (i.uf) {
+      const ufUpper = i.uf.trim().toUpperCase();
+      ufCounts[ufUpper] = (ufCounts[ufUpper] || 0) + 1;
+    }
+  });
+
+  const maxEnvios = Math.max(...Object.values(ufCounts), 1);
+
+  // 2. Função de escala de cor
+  function getColor(d) {
+    if (!d) return '#E2E8F0'; // Estado sem envios
+    const ratio = d / maxEnvios;
+    return ratio > 0.75 ? '#002B5C' :
+           ratio > 0.50 ? '#1B6FD5' :
+           ratio > 0.25 ? '#60A5FA' :
+                          '#BFDBFE';
+  }
+
+  // 3. Inicializar o mapa Leaflet se não existir
+  if (!mapInstance) {
+    const mapContainer = document.getElementById('map-uf');
+    if (!mapContainer) return;
+
+    mapInstance = L.map('map-uf', {
+      center: [-14.2350, -51.9253], // Centro do Brasil
+      zoom: 3,
+      zoomControl: false,
+      attributionControl: false
+    });
+
+    // Camada de fundo minimalista
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+      maxZoom: 7,
+      minZoom: 3
+    }).addTo(mapInstance);
+  }
+
+  // 4. Carregar GeoJSON dos estados se ainda não foi carregado
+  if (!brasilGeoData) {
+    try {
+      const resp = await fetch(BRASIL_GEOJSON_URL);
+      brasilGeoData = await resp.json();
+    } catch (e) {
+      console.error('Erro ao carregar malha geográfica do Brasil', e);
+      return;
+    }
+  }
+
+  // 5. Remover camada anterior se existir (re-renderização via filtros)
+  if (geojsonLayer) {
+    mapInstance.removeLayer(geojsonLayer);
+  }
+
+  // 6. Desenhar estados com cores dinâmicas baseadas nos dados
+  geojsonLayer = L.geoJson(brasilGeoData, {
+    style: function(feature) {
+      const siglaUF = feature.properties.sigla;
+      const count = ufCounts[siglaUF] || 0;
+      return {
+        fillColor: getColor(count),
+        weight: 1,
+        opacity: 1,
+        color: '#FFFFFF',
+        fillOpacity: 0.85
+      };
+    },
+    onEachFeature: function(feature, layer) {
+      const siglaUF = feature.properties.sigla;
+      const nomeUF = feature.properties.name;
+      const count = ufCounts[siglaUF] || 0;
+      
+      layer.bindTooltip(
+        `<strong>${nomeUF} (${siglaUF})</strong><br/>${count} envio(s)`,
+        { permanent: false, direction: 'auto' }
+      );
+    }
+  }).addTo(mapInstance);
 }
 
 // ═══════════════════════════════════════════════
@@ -956,7 +1039,7 @@ function applyLoggedUser() {
   document.getElementById('user-av').innerText   = initials || '?';
   document.getElementById('user-name').innerText = currentUser.nome;
   document.getElementById('user-role').innerText = tipo;
-  document.getElementById('user-pill').setAttribute('data-tooltip', `${currentUser.nome} — ${tipo} (clique para sair)`);
+  document.getElementById('user-pill').setAttribute('data-tooltip', `${currentUser.nome} — ${tipo}`);
 
   // ── Permissões por tipo ──────────────────────────────────────
   const PODE_CRUD_PEDIDO  = ['Administrador','Gerente de Logística','Operador'].includes(tipo);
@@ -991,7 +1074,7 @@ function applyLoggedUser() {
 
 async function logout() {
   if (!currentUser) return;
-  if (!confirm('Deseja sair do sistema?')) return;
+  fecharPerfilModal();
   try {
     await apiFetch('/api/auth/logout', { method: 'POST' });
   } catch (e) {} // Força a limpeza local mesmo se falhar
@@ -1242,10 +1325,6 @@ function renderVendedores() {
   }).join('');
 }
 
-
-
-
-
 async function carregarDePara() {
   const selectEl = document.getElementById('dp-usuario-id');
   const tbodyEl  = document.getElementById('tabela-de-para');
@@ -1348,8 +1427,120 @@ async function deletarDePara(id) {
     }
 }
 
-function isoToBr(str) {
-  if (!str || !str.includes('-') || str.startsWith('0001')) return '';
-  const [y, m, d] = str.split('-');
-  return `${d}/${m}/${y}`;
+// ═══════════════════════════════════════════════
+// MODAL PERFIL DO USUÁRIO
+// ═══════════════════════════════════════════════
+function abrirPerfilModal() {
+  if (!currentUser) return;
+
+  const tipo = currentUser.tipo;
+  const initials = currentUser.nome
+    .split(' ').filter(Boolean).slice(0, 2).map(n => n[0]).join('').toUpperCase();
+
+  document.getElementById('perfil-av-grande').innerText = initials || '?';
+  document.getElementById('perfil-titulo').innerText    = currentUser.nome;
+  document.getElementById('perfil-cargo').innerText     = tipo;
+  document.getElementById('perfil-nome').value          = currentUser.nome;
+  document.getElementById('perfil-senha').value         = '';
+  document.getElementById('perfil-confirma').value      = '';
+  document.getElementById('perfil-confirma-wrap').style.display = 'none';
+
+  const errEl = document.getElementById('perfil-error');
+  const okEl  = document.getElementById('perfil-success');
+  errEl.style.display = 'none';
+  okEl.style.display  = 'none';
+
+  const btn = document.getElementById('perfil-btn-salvar');
+  btn.innerText = 'Salvar';
+  btn.disabled  = false;
+
+  // Mostra campo de confirmação só ao digitar nova senha
+  document.getElementById('perfil-senha').oninput = function () {
+    document.getElementById('perfil-confirma-wrap').style.display =
+      this.value.length > 0 ? 'block' : 'none';
+  };
+
+  document.getElementById('perfil-overlay').style.display = 'flex';
+}
+
+function fecharPerfilModal(event) {
+  // Se chamado pelo onclick do backdrop, só fecha ao clicar no próprio overlay
+  if (event && event.target !== document.getElementById('perfil-overlay')) return;
+  document.getElementById('perfil-overlay').style.display = 'none';
+}
+
+async function salvarPerfil() {
+  const nome     = document.getElementById('perfil-nome').value.trim();
+  const senha    = document.getElementById('perfil-senha').value;
+  const confirma = document.getElementById('perfil-confirma').value;
+  const errEl    = document.getElementById('perfil-error');
+  const okEl     = document.getElementById('perfil-success');
+  const btn      = document.getElementById('perfil-btn-salvar');
+
+  errEl.style.display = 'none';
+  okEl.style.display  = 'none';
+
+  if (!nome) {
+    errEl.innerText     = 'O nome não pode ficar em branco.';
+    errEl.style.display = 'block';
+    document.getElementById('perfil-nome').focus();
+    return;
+  }
+
+  if (senha) {
+    if (senha.length < 6) {
+      errEl.innerText     = 'A senha deve ter no mínimo 6 caracteres.';
+      errEl.style.display = 'block';
+      return;
+    }
+    if (senha !== confirma) {
+      errEl.innerText     = 'As senhas não coincidem.';
+      errEl.style.display = 'block';
+      return;
+    }
+  }
+
+  btn.innerText = 'Salvando…';
+  btn.disabled  = true;
+
+  try {
+    const payload = { nome };
+    if (senha) payload.nova_senha = senha;
+
+    const res = await apiFetch('/api/auth/meu-perfil', {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      errEl.innerText     = data.detail || 'Erro ao salvar perfil.';
+      errEl.style.display = 'block';
+      btn.innerText = 'Salvar';
+      btn.disabled  = false;
+      return;
+    }
+
+    // Atualiza sessão local
+    currentUser.nome = nome;
+    if (senha) currentUser.primeiro_acesso = false;
+    sessionStorage.setItem('fortecare_session', JSON.stringify(currentUser));
+    applyLoggedUser();
+
+    okEl.innerText     = senha ? 'Nome e senha atualizados com sucesso!' : 'Nome atualizado com sucesso!';
+    okEl.style.display = 'block';
+
+    // Fecha o modal após 1.8 s
+    setTimeout(() => {
+      document.getElementById('perfil-overlay').style.display = 'none';
+    }, 1800);
+
+  } catch (err) {
+    errEl.innerText     = 'Não foi possível conectar ao servidor.';
+    errEl.style.display = 'block';
+    btn.innerText = 'Salvar';
+    btn.disabled  = false;
+  }
 }

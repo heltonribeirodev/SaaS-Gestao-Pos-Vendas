@@ -1,1 +1,3 @@
-uvicorn backend.main:app --reload
+** rodar localmente em máquina de desenvolvedor - uvicorn backend.main:app --reload
+
+** senha padrão - 123456 (Após o primeiro acesso, ela precisa ser alterada)
