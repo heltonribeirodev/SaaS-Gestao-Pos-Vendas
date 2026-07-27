@@ -1676,3 +1676,168 @@ input[type="date"].datef::-webkit-calendar-picker-indicator {
 .table-depara thead th:hover {
   color: var(--muted);
 }
+
+
+/* ==========================================================================
+   RESPONSIVIDADE E ADAPTAÇÃO MOBILE
+   ========================================================================== */
+
+/* ── DISPOSITIVOS INTERMEDIÁRIOS (Tablets até 1024px) ── */
+@media (max-width: 1024px) {
+  .alert-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .charts-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .kpi-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ── DISPOSITIVOS MÓVEIS (Smartphones até 768px) ── */
+@media (max-width: 768px) {
+  :root {
+    --sidebar-w: 0px; 
+  }
+
+  /* Reestruturação da Barra Lateral para Barra Inferior */
+  .sidebar {
+    top: auto;
+    bottom: 0;
+    width: 100%;
+    height: 65px;
+    flex-direction: row;
+    border-top: 1px solid var(--border);
+    z-index: 999;
+  }
+
+  .sb-brand, .sb-sep, .sb-footer {
+    display: none;
+  }
+
+  .sb-nav {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0;
+    width: 100%;
+  }
+
+  .sb-nav li {
+    flex-direction: column;
+    margin: 0;
+    padding: 6px;
+    font-size: 10px;
+    border-radius: 0;
+    flex: 1;
+  }
+
+  .sb-nav li .nav-ic {
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+
+  .sb-nav li .nav-label {
+    display: block; 
+    font-size: 10px;
+  }
+
+  [data-tooltip]::after {
+    display: none; /* Desativa tooltips no mobile */
+  }
+
+  /* Ajustes Estruturais (Header e Área Principal) */
+  .main {
+    margin-left: 0;
+    padding-bottom: 65px; /* Espaço para a nova barra inferior */
+  }
+
+  .topbar {
+    height: auto;
+    padding: 15px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .topbar-right {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .topbar-right .btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .content {
+    padding: 15px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Grids Transformados em Lista Vertical */
+  .alert-grid, 
+  .kpi-grid, 
+  .perf-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Reestruturação de Filtros e Buscas */
+  .filters-wrap .frow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  select.fsel, 
+  .fsearch, 
+  .dinput-wrap {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .gsearch-wrap {
+    width: 100%;
+  }
+
+  .qchips {
+    justify-content: center;
+  }
+
+  /* Ajuste de Modais para evitar overflow */
+  .modal-box {
+    width: 95%;
+    padding: 20px;
+  }
+
+  #manual-overlay .modal-box > div {
+    grid-template-columns: 1fr !important; /* Força 1 coluna no modal de inclusão */
+  }
+
+  .login-field {
+    grid-column: span 1 !important;
+  }
+}
+
+/* ── DISPOSITIVOS MUITO PEQUENOS (Até 480px) ── */
+@media (max-width: 480px) {
+  .kpi-val {
+    font-size: 24px;
+  }
+  
+  .alert-val {
+    font-size: 22px;
+  }
+  
+  .sb-nav li .nav-label {
+    display: none; /* Oculta textos na barra inferior para telas muito estreitas */
+  }
+}
