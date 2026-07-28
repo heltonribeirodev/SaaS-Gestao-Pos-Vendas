@@ -41,19 +41,19 @@
     <div class="sb-sep"></div>
     <ul class="sb-nav">
       <li class="active" onclick="showTab('dashboard', this)" data-tooltip="Dashboard">
-        <span class="nav-ic"><i class="fa-solid fa-chart-column"></i></span><span class="nav-label">Dashboard</span>
+        <span class="nav-ic"><i class="fa-regular fa-chart-bar"></i></span><span class="nav-label">Dashboard</span>
       </li>
       <li onclick="showTab('pedidos', this)" data-tooltip="Pedidos">
-        <span class="nav-ic"><i class="fa-solid fa-dolly"></i></span><span class="nav-label">Pedidos</span>
+        <span class="nav-ic"><i class="fa-solid fa-box"></i></span><span class="nav-label">Pedidos</span>
       </li>
       <li onclick="showTab('transportadoras', this)" data-tooltip="Transportadoras">
-        <span class="nav-ic"><i class="fa-solid fa-truck-fast"></i></span><span class="nav-label">Transportadoras</span>
+        <span class="nav-ic"><i class="fa-solid fa-truck"></i></span><span class="nav-label">Transportadoras</span>
       </li>
       <li onclick="showTab('vendedores', this)" data-tooltip="Vendedores">
-        <span class="nav-ic"><i class="fa-solid fa-people-roof"></i></span><span class="nav-label">Vendedores</span>
+        <span class="nav-ic"><i class="fa-solid fa-user-tie"></i></span><span class="nav-label">Vendedores</span>
       </li>
       <li onclick="showTab('administracao', this)" data-tooltip="Administração">
-        <span class="nav-ic"><i class="fa-solid fa-ellipsis"></i></span><span class="nav-label">Administração</span>
+        <span class="nav-ic"><i class="fa-solid fa-gear"></i></span><span class="nav-label">Administração</span>
       </li>
     </ul>
     <div class="sb-footer">
@@ -74,7 +74,7 @@
         <div class="topbar-hint">ForteCare · Gestão de Pós Vendas</div>
       </div>
       <div class="topbar-right">
-        <button class="btn btn-ghost" onclick="exportCSV()"><i class="fa-solid fa-download"></i> Exportar Planilha</button>
+        <button class="btn btn-ghost" onclick="exportCSV()"><i class="fa-solid fa-arrow-up-from-bracket"></i> Exportar Planilha</button>
         <button class="btn btn-ghost" onclick="openManualModal()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="12" y1="5" x2="12" y2="19" />
@@ -144,6 +144,16 @@
             <div class="alert-txt">
               <div class="alert-val" id="qtd-retido">-</div>
               <div class="alert-label">Retido na Fiscalização</div>
+            </div>
+            <div class="alert-arrow">Ver pedidos →</div>
+          </div>
+
+          <!-- Card FOB -->
+          <div class="alert-card ac-fob" onclick="goToUrgent('fob')">
+            <div class="alert-ic"><i class="fa-solid fa-handshake"></i></div>
+            <div class="alert-txt">
+              <div class="alert-val" id="qtd-fob">-</div>
+              <div class="alert-label">FOB — Retirada pelo Cliente</div>
             </div>
             <div class="alert-arrow">Ver pedidos →</div>
           </div>
@@ -263,9 +273,10 @@
             <select class="fsel" id="f-status" onchange="applyFilters()">
               <option value="">Todos os Status</option>
               <option value="EM TRÂNSITO">Em Trânsito</option>
-              <option value="EM ROTA">Em Rota</option>
+              <option value="EM ROTA DE ENTREGA">Em Rota de Entrega</option>
               <option value="ENTREGUE">Entregue</option>
               <option value="RETIDO FISCALIZAÇÃO">Retido Fiscalização</option>
+              <option value="FOB">FOB</option>
             </select>
             <select class="fsel" id="f-vend" onchange="applyFilters()">
               <option value="">Todos os Vendedores</option>
@@ -379,7 +390,6 @@
                   <th>Status</th>
                   <th>Obs</th>
                   <th>Obs Rastreio</th>
-                  <th>Ações</th>
                 </tr>
               </thead>
               <tbody id="p-body"></tbody>
@@ -623,9 +633,10 @@
             <label>Status</label>
             <select id="m-status" class="fsel" style="width:100%">
               <option value="EM TRÂNSITO">Em Trânsito</option>
-              <option value="EM ROTA">Em Rota</option>
+              <option value="EM ROTA DE ENTREGA">Em Rota de Entrega</option>
               <option value="ENTREGUE">Entregue</option>
               <option value="RETIDO FISCALIZAÇÃO">Retido Fiscalização</option>
+              <option value="FOB">FOB — Retirada pelo Cliente</option>
             </select>
           </div>
           <div class="login-field">

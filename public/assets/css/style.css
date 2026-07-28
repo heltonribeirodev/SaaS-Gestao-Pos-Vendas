@@ -611,7 +611,7 @@ body {
 /* ── PAINEL DE SUPORTE AO OPERADOR ──────────── */
 .alert-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -643,7 +643,7 @@ body {
 }
 
 .alert-val {
-  font-size: 26px;
+  font-size: 20px;
   font-weight: 800;
   color: var(--text);
   line-height: 1;
@@ -651,7 +651,7 @@ body {
 }
 
 .alert-label {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--muted);
   margin-top: 3px;
@@ -660,10 +660,11 @@ body {
 .alert-arrow {
   font-size: 11px;
   font-weight: 700;
-  color: var(--muted);
+  color: var(--navy-dark);
   white-space: nowrap;
 }
 
+/* Prazo Hoje (Amarelo) */
 .ac-hoje.is-alert {
   background-color: #FFFBEB;
   border-color: #FBBF24;
@@ -671,8 +672,8 @@ body {
 .ac-hoje.is-alert .alert-ic,
 .ac-hoje.is-alert .alert-val,
 .ac-hoje.is-alert .alert-label,
-.ac-hoje.is-alert .alert-action {
-  color: #92400E; /* Contraste mais escuro para legibilidade */
+.ac-hoje.is-alert .alert-arrow { /* Ajustado para .alert-arrow */
+  color: #92400E;
 }
 
 /* Atraso: Atenção Alta (Laranja) */
@@ -683,7 +684,7 @@ body {
 .ac-atraso.is-alert .alert-ic,
 .ac-atraso.is-alert .alert-val,
 .ac-atraso.is-alert .alert-label,
-.ac-atraso.is-alert .alert-action {
+.ac-atraso.is-alert .alert-arrow { /* Ajustado para .alert-arrow */
   color: #C2410C;
 }
 
@@ -691,12 +692,11 @@ body {
 .ac-rota.is-alert {
   background-color: #EFF6FF;
   border-color: #3B82F6;
-  /* Animação removida: status operacional não deve competir por atenção urgente */
 }
 .ac-rota.is-alert .alert-ic,
 .ac-rota.is-alert .alert-val,
 .ac-rota.is-alert .alert-label,
-.ac-rota.is-alert .alert-action {
+.ac-rota.is-alert .alert-arrow { /* Ajustado para .alert-arrow */
   color: #1E40AF;
 }
 
@@ -704,13 +704,25 @@ body {
 .ac-retido.is-alert {
   background-color: #FEF2F2;
   border-color: #EF4444;
-  animation: alert-pulse-subtle 2s infinite; /* Pulso mais sutil para não irritar o usuário */
+  animation: alert-pulse-subtle 2s infinite; 
 }
 .ac-retido.is-alert .alert-ic,
 .ac-retido.is-alert .alert-val,
 .ac-retido.is-alert .alert-label,
-.ac-retido.is-alert .alert-action {
+.ac-retido.is-alert .alert-arrow { /* Ajustado para .alert-arrow */
   color: #991B1B;
+}
+
+/* FOB: Informativo (Roxo) */
+.ac-fob {
+  background-color: #FAF5FF;
+  border-color: #8c36e7;
+}
+.ac-fob .alert-ic,
+.ac-fob .alert-val,
+.ac-fob .alert-label,
+.ac-fob .alert-arrow { /* Erro de sintaxe corrigido aqui! */
+  color: #6B21A8;
 }
 
 @keyframes alert-pulse {
@@ -886,6 +898,11 @@ body {
   color: #991B1B;
 }
 
+.badge.bFob {
+  background: #F3E8FF;
+  color: #6B21A8;
+}
+
 .badge.bE .bd {
   background: var(--teal);
 }
@@ -906,6 +923,10 @@ body {
 
 .badge.bF .bd {
   background: var(--red);
+}
+
+.badge.bFob .bd {
+  background: #A855F7;
 }
 
 @keyframes pulse-dot {
@@ -964,6 +985,11 @@ select.status-edit.bR {
 select.status-edit.bF {
   background: var(--red-pale);
   color: #991B1B;
+}
+
+select.status-edit.bFob {
+  background: #F3E8FF;
+  color: #6B21A8;
 }
 
 select.status-edit:hover {
@@ -1218,12 +1244,8 @@ tbody td {
   white-space: nowrap;
 }
 
+.td-money,
 .td-mono {
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
-  font-size: 11.5px;
-}
-
-.td-money {
   font-weight: 700;
   color: var(--navy);
   font-size: 12px;
@@ -1683,6 +1705,12 @@ input[type="date"].datef::-webkit-calendar-picker-indicator {
    ========================================================================== */
 
 /* ── DISPOSITIVOS INTERMEDIÁRIOS (Tablets até 1024px) ── */
+@media (max-width: 1280px) {
+  .alert-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 1024px) {
   .alert-grid {
     grid-template-columns: repeat(2, 1fr);

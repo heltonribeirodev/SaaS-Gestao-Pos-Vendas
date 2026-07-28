@@ -9,11 +9,12 @@ let currentSort = { col: 'id', asc: true };
 let urgencyFilter = null; 
 let currentUser = null;
 
-const STATUS_OPTIONS = ['EM TRÂNSITO', 'EM ROTA DE ENTREGA','ENTREGUE','RETIDO FISCALIZAÇÃO'];
+const STATUS_OPTIONS = ['EM TRÂNSITO', 'EM ROTA DE ENTREGA','ENTREGUE','RETIDO FISCALIZAÇÃO','FOB'];
 
 // Variáveis Globais dos Gráficos e Mapa
 let chartStatusInstance = null;
 let chartVendInstance = null;
+let chartTranspInstance = null;
 let mapInstance = null;
 let geojsonLayer = null;
 const BRASIL_GEOJSON_URL = 'https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson';
@@ -70,7 +71,7 @@ function todayMidnight() {
 
 function isPending(item) {
   const s = (item.status || '').toUpperCase();
-  return !s.startsWith('ENTREGUE') && !s.startsWith('CANCEL');
+  return !s.startsWith('ENTREGUE') && !s.startsWith('CANCEL') && s !== 'FOB';
 }
 
 function getCurrentMonthKey() {
@@ -128,6 +129,7 @@ function getBadgeClass(status) {
     case 'EM ROTA DE ENTREGA': return 'bR';
     case 'ENTREGUE': return 'bE';
     case 'RETIDO FISCALIZAÇÃO': return 'bF';
+    case 'FOB': return 'bFob';
     default: return 'bT';
   }
 }
@@ -261,6 +263,8 @@ function applyFilters() {
         if (item.status.toUpperCase() !== 'EM ROTA DE ENTREGA') return false;
       } else if (urgencyFilter === 'retido') {
         if (item.status.toUpperCase() !== 'RETIDO FISCALIZAÇÃO') return false;
+      } else if (urgencyFilter === 'fob') {
+        if (item.status.toUpperCase() !== 'FOB') return false;
       } else {
         const prev = parseBrDate(item.previsao);
         if (!prev) return false;
@@ -293,6 +297,7 @@ function goToUrgent(type) {
     if (type === 'atraso') txt = 'Em atraso';
     if (type === 'rota') txt = 'Em rota de entrega';
     if (type === 'retido') txt = 'Retido fiscalização';
+    if (type === 'fob') txt = 'FOB';
     tag.querySelector('.ptag-txt').innerText = txt;
   }
   applyFilters();
@@ -381,11 +386,14 @@ function renderDashboard() {
   const emTransito = data.filter(p => p.status.toUpperCase() === 'EM TRÂNSITO').length;
   const emRota = data.filter(p => p.status.toUpperCase() === 'EM ROTA DE ENTREGA').length;
   const retido = data.filter(p => p.status.toUpperCase() === 'RETIDO FISCALIZAÇÃO').length;
+  const fob = data.filter(p => p.status.toUpperCase() === 'FOB').length;
 
   const elRota = document.getElementById('qtd-rota');
   if (elRota) elRota.innerText = emRota;
   const elRetido = document.getElementById('qtd-retido');
   if (elRetido) elRetido.innerText = retido;
+  const elFob = document.getElementById('qtd-fob');
+  if (elFob) elFob.innerText = fob;
 
   document.getElementById('kpi-total').innerText = total;
   document.getElementById('kpi-ent').innerText = entregues;
@@ -486,6 +494,7 @@ function renderChartsEngine(data) {
   // Destruir instâncias antigas de Chart.js
   if (chartStatusInstance) chartStatusInstance.destroy();
   if (chartVendInstance) chartVendInstance.destroy();
+  if (chartTranspInstance) chartTranspInstance.destroy();
 
   // Gráfico Doughnut (Status)
   const statusCounts = { 'ENTREGUE': 0, 'EM TRÂNSITO': 0, 'EM ROTA DE ENTREGA': 0, 'RETIDO FISCALIZAÇÃO': 0 };
@@ -598,7 +607,6 @@ data.forEach(i => {
 
 // 2. Buscando o novo elemento no DOM (Certifique-se de ter id="c-transp" no seu HTML)
 const ctxTransp = document.getElementById('c-transp');
-let chartTranspInstance; // Declarando a instância do gráfico
 
 if (ctxTransp) {
   chartTranspInstance = new Chart(ctxTransp, {
@@ -775,9 +783,16 @@ function renderPedidos() {
     return;
   }
 
+  // Ordenação ajustada para o número da NF (id) do maior para o menor (decrescente)
   filteredData.sort((a, b) => {
     let valA = a[currentSort.col];
     let valB = b[currentSort.col];
+
+    // Se a coluna de ordenação for o ID/NF, força a ordem decrescente (maior número primeiro)
+    if (currentSort.col === 'id') {
+      return Number(valB) - Number(valA);
+    }
+
     if (typeof valA === 'string') return currentSort.asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
     else return currentSort.asc ? valA - valB : valB - valA;
   });
@@ -832,9 +847,6 @@ function renderPedidos() {
                  onchange="updatePedidoAPI(${item._rowId}, { obs_rastreio: this.value })">
           ${item.obs_rastreio ? `<span class="obs-edit-clear" title="Remover rastreio" onclick="clearObsRastreio(${item._rowId})">✕</span>` : ''}
         </div>
-      </td>
-      <td>
-        <button class="delete-btn" title="Excluir registro" onclick="deleteRecord(${item._rowId})">🗑</button>
       </td>
     </tr>
   `).join('');
@@ -1058,7 +1070,7 @@ function handleFile(e) {
           nf: String(r['NF'] || r['#NF'] || r['Nota'] || ''),
           vendedor: String(r['Vendedor'] || r['VENDEDOR'] || 'NÃO INFORMADO').toUpperCase().trim(),
           valor_nf: vNF, valor_frete: vC, pct_frete: calcPct(vNF, vC),
-          transportadora: String(r['Transportadora'] || r['TRANSPORTADORA'] || 'RETIRA').toUpperCase().trim(),
+          transportadora: String(r['Transportadora'] || r['TRANSPORTADORA'] || '').toUpperCase().trim(),
           emissao: excelToIsoDate(r['Emissão'] || r['Emissao'] || r['Data Emissão'] || r['Data Emissao']) || new Date().toISOString().split('T')[0],
           destinatario: String(r['Destinatário'] || r['Destinatario'] || r['Cliente'] || 'NÃO INFORMADO').toUpperCase().trim(),
           uf: String(r['UF'] || r['Estado'] || '').toUpperCase().trim(),
