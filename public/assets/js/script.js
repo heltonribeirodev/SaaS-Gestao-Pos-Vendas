@@ -145,7 +145,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   applyLoggedUser();
   await loadPedidosFromDB();
-  
+  // Marca o primeiro sync e liga o polling automático
+  _lastSyncAt = new Date();
+  const _initHhmm = _lastSyncAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  _setSyncBadge('ok', `Atualizado ${_initHhmm}`);
+  startAutoRefresh();
+
   const gSearch = document.getElementById('g-search');
   if (gSearch) {
     gSearch.addEventListener('input', (e) => {
@@ -191,6 +196,75 @@ async function loadPedidosFromDB() {
     showToast('Falha ao carregar dados do servidor.');
   }
 }
+
+// ── AUTO-REFRESH (polling a cada 30s) ─────────────────────────────────────────
+const AUTO_REFRESH_INTERVAL_MS = 30_000; // 30 segundos
+let _autoRefreshTimer = null;
+let _lastSyncAt = null;
+
+/** Retorna true se algum modal/overlay estiver aberto — polling deve esperar */
+function _isAnyModalOpen() {
+  const overlayIds = ['overlay', 'manual-overlay', 'user-overlay', 'perfil-overlay'];
+  return overlayIds.some(id => {
+    const el = document.getElementById(id);
+    if (!el) return false;
+    const cls = el.classList;
+    // Overlays de classe usam .open; o perfil-overlay usa display flex
+    if (cls.contains('open')) return true;
+    if (el.style.display === 'flex') return true;
+    return false;
+  });
+}
+
+/** Atualiza o badge visual de sincronização */
+function _setSyncBadge(state, label) {
+  const badge = document.getElementById('sync-badge');
+  const lbl   = document.getElementById('sync-label');
+  if (!badge || !lbl) return;
+  badge.className = `sync-badge sync-${state}`;
+  lbl.textContent = label;
+}
+
+/** Executa o refresh silencioso (sem travar a UI) */
+async function _autoRefreshTick() {
+  // Pausa se tab está oculta ou modal aberto
+  if (document.hidden) {
+    _setSyncBadge('paused', 'Em pausa');
+    return;
+  }
+  if (_isAnyModalOpen()) {
+    _setSyncBadge('paused', 'Aguardando...');
+    return;
+  }
+
+  _setSyncBadge('busy', 'Sincronizando...');
+  try {
+    await loadPedidosFromDB();
+    _lastSyncAt = new Date();
+    const hhmm = _lastSyncAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    _setSyncBadge('ok', `Atualizado ${hhmm}`);
+  } catch {
+    _setSyncBadge('idle', 'Falha na sync');
+  }
+}
+
+/** Inicia o polling automático e registra eventos de visibilidade */
+function startAutoRefresh() {
+  // Ao voltar à aba, dispara imediatamente se já passou muito tempo
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      const elapsed = _lastSyncAt ? Date.now() - _lastSyncAt.getTime() : Infinity;
+      if (elapsed > AUTO_REFRESH_INTERVAL_MS) _autoRefreshTick();
+      else _setSyncBadge('ok', _lastSyncAt
+        ? `Atualizado ${_lastSyncAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+        : '–');
+    }
+  });
+
+  // Inicia o intervalo principal
+  _autoRefreshTimer = setInterval(_autoRefreshTick, AUTO_REFRESH_INTERVAL_MS);
+}
+// ── FIM AUTO-REFRESH ───────────────────────────────────────────────────────────
 
 function buildFilterDropdowns() {
   const vends = [...new Set(dataSET.map(i => i.vendedor))].sort();

@@ -270,6 +270,41 @@ body {
   color: var(--muted);
 }
 
+/* ── BADGE DE SINCRONIZAÇÃO AUTOMÁTICA ──────────── */
+.sync-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: background 0.3s, color 0.3s;
+  user-select: none;
+}
+.sync-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  transition: background 0.3s;
+}
+/* Estados */
+.sync-idle   { background: transparent; color: var(--muted); }
+.sync-idle   .sync-dot { background: var(--muted); opacity: 0.5; }
+.sync-ok     { background: var(--teal-pale); color: var(--teal); }
+.sync-ok     .sync-dot { background: var(--teal); }
+.sync-busy   { background: var(--blue-pale); color: var(--blue); }
+.sync-busy   .sync-dot { background: var(--blue); animation: sync-pulse 0.8s infinite; }
+.sync-paused { background: var(--amber-pale); color: var(--amber); }
+.sync-paused .sync-dot { background: var(--amber); }
+
+@keyframes sync-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.7); }
+}
+
 .topbar-right {
   display: flex;
   align-items: center;
