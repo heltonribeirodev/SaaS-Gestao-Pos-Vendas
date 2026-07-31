@@ -680,10 +680,13 @@
           <div class="modal-sh" style="margin:0;text-align:center" id="perfil-cargo">–</div>
         </div>
 
+        <!-- Formulário de perfil (form evita avisos do Chrome sobre password fora de form) -->
+        <form id="perfil-form" onsubmit="return false;" autocomplete="on">
+
         <!-- Nome -->
         <div class="login-field">
           <label>Nome completo</label>
-          <input type="text" id="perfil-nome" placeholder="Seu nome">
+          <input type="text" id="perfil-nome" placeholder="Seu nome" autocomplete="name">
         </div>
 
         <!-- Nova senha -->
@@ -697,6 +700,8 @@
           <label>Confirmar nova senha</label>
           <input type="password" id="perfil-confirma" placeholder="Repita a nova senha" autocomplete="new-password">
         </div>
+
+        </form>
 
         <!-- Feedback -->
         <div class="login-error" id="perfil-error" style="display:none"></div>
@@ -722,7 +727,7 @@
 
     <div class="toast" id="toast"></div>
 
-    <script src="assets/JS/script.js"></script>
+    <script src="assets/js/script.js"></script>
 
     <script>
       if ('serviceWorker' in navigator) {

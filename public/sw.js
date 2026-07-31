@@ -4,8 +4,8 @@ const ASSETS_TO_CACHE = [
   '/login.html',
   '/assets/css/login.css',
   '/assets/css/style.css',
-  '/assets/JS/login.js',
-  '/assets/JS/script.js',
+  '/assets/js/login.js',
+  '/assets/js/script.js',
   '/assets/images/ForteCare-F-colors.png'
 ];
 

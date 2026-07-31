@@ -198,7 +198,7 @@ async function loadPedidosFromDB() {
 }
 
 // ── AUTO-REFRESH (polling a cada 30s) ─────────────────────────────────────────
-const AUTO_REFRESH_INTERVAL_MS = 30_000; // 30 segundos
+const AUTO_REFRESH_INTERVAL_MS = 5_000; // 5 segundos
 let _autoRefreshTimer = null;
 let _lastSyncAt = null;
 
