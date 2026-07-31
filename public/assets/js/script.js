@@ -1499,7 +1499,7 @@ function renderVendedores() {
         <div class="perf-stats">
           <div class="ps-block" style="background:var(--teal-pale);color:#006B4C"><div class="ps-val">${v.noPrazo}</div><div class="ps-lbl">No Prazo</div></div>
           <div class="ps-block" style="background:var(--red-pale);color:#991B1B"><div class="ps-val">${v.atraso}</div><div class="ps-lbl">Atraso</div></div>
-          <div class="ps-block" style="background:var(--blue-pale);color:var(--blue)"><div class="ps-val">${sla}%</div><div class="ps-lbl">N. SEVIÇO</div></div>
+          <div class="ps-block" style="background:var(--blue-pale);color:var(--blue)"><div class="ps-val">${sla}%</div><div class="ps-lbl">N. SERVIÇO</div></div>
         </div>
         <div style="margin-top:14px; font-size:12px; display:flex; flex-direction:column; gap:4px; border-top:1px solid var(--border); padding-top:10px;">
           <div style="display:flex; justify-content:space-between;"><span style="color:var(--muted)">Faturamento:</span><strong style="color:var(--teal)">${formatMoney(v.faturamento)}</strong></div>
