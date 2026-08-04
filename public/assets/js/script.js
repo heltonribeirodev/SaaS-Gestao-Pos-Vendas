@@ -6,10 +6,10 @@ let filteredData = [];
 let currentPage = 1;
 const rowsPerPage = 15;
 let currentSort = { col: 'id', asc: true };
-let urgencyFilter = null; 
+let urgencyFilter = null;
 let currentUser = null;
 
-const STATUS_OPTIONS = ['EM TRÂNSITO', 'EM ROTA DE ENTREGA','ENTREGUE','RETIDO FISCALIZAÇÃO','FOB'];
+const STATUS_OPTIONS = ['EM TRÂNSITO', 'EM ROTA DE ENTREGA', 'ENTREGUE', 'RETIDO FISCALIZAÇÃO', 'FOB'];
 
 // Variáveis Globais dos Gráficos e Mapa
 let chartStatusInstance = null;
@@ -29,7 +29,7 @@ async function apiFetch(endpoint, options = {}) {
     options.headers = { ...options.headers, 'Content-Type': 'application/json' };
   }
   const res = await fetch(endpoint, options);
-  
+
   if (res.status === 401) {
     sessionStorage.removeItem('fortecare_session');
     window.location.href = 'login.html';
@@ -87,7 +87,7 @@ function getDashboardData() {
 function brToIso(str) {
   if (!str || !str.includes('/')) return '';
   const [d, m, y] = str.split('/');
-  return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+  return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
 }
 
 function isoToBr(str) {
@@ -104,7 +104,7 @@ function excelToIsoDate(value) {
   }
   if (typeof value === 'number' && typeof XLSX !== 'undefined' && XLSX.SSF) {
     const parsed = XLSX.SSF.parse_date_code(value);
-    if (parsed) return `${parsed.y}-${String(parsed.m).padStart(2,'0')}-${String(parsed.d).padStart(2,'0')}`;
+    if (parsed) return `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
   }
   const s = String(value).trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
@@ -124,7 +124,7 @@ function excelToBrDate(value) {
 const formatMoney = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
 function getBadgeClass(status) {
-  switch(String(status).toUpperCase()) {
+  switch (String(status).toUpperCase()) {
     case 'EM TRÂNSITO': return 'bT';
     case 'EM ROTA DE ENTREGA': return 'bR';
     case 'ENTREGUE': return 'bE';
@@ -141,7 +141,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const session = JSON.parse(sessionStorage.getItem('fortecare_session'));
     if (session) currentUser = session;
-  } catch {}
+  } catch { }
 
   applyLoggedUser();
   await loadPedidosFromDB();
@@ -165,7 +165,7 @@ async function loadPedidosFromDB() {
   try {
     const res = await apiFetch('/api/pedidos/');
     const rawData = await res.json();
-    
+
     // Mapeia do formato do PostgreSQL para o formato esperado pela UI
     dataSET = rawData.map((dbItem, index) => ({
       _rowId: index,
@@ -189,9 +189,23 @@ async function loadPedidosFromDB() {
       obs_rastreio: dbItem.obs_rastreio || ''
     }));
 
-    filteredData = [...dataSET];
+    // Captura AGORA (após o fetch) apenas os 3 selects que buildFilterDropdowns() destrói.
+    // Inputs de texto (f-q, g-search, f-dfrom, f-dto) preservam seus valores naturalmente
+    // e NÃO devem ser sobrescritos — isso evitava o bug de "caractere comido".
+    const _sel = (id) => document.getElementById(id)?.value || '';
+    const _savedVend = _sel('f-vend');
+    const _savedTransp = _sel('f-transp');
+    const _savedUf = _sel('f-uf');
+
+    // Reconstrói os dropdowns (vendedor/transportadora/UF) e restaura seleções
     buildFilterDropdowns();
-    executeDataRefresh();
+    const _set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+    _set('f-vend', _savedVend);
+    _set('f-transp', _savedTransp);
+    _set('f-uf', _savedUf);
+
+    // Re-aplica filtros mantendo a página atual (keepPage = true)
+    applyFilters(true);
   } catch (error) {
     showToast('Falha ao carregar dados do servidor.');
   }
@@ -219,7 +233,7 @@ function _isAnyModalOpen() {
 /** Atualiza o badge visual de sincronização */
 function _setSyncBadge(state, label) {
   const badge = document.getElementById('sync-badge');
-  const lbl   = document.getElementById('sync-label');
+  const lbl = document.getElementById('sync-label');
   if (!badge || !lbl) return;
   badge.className = `sync-badge sync-${state}`;
   lbl.textContent = label;
@@ -274,7 +288,7 @@ function buildFilterDropdowns() {
   const populate = (id, list, placeholder) => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.innerHTML = `<option value="">${placeholder}</option>` + 
+    el.innerHTML = `<option value="">${placeholder}</option>` +
       list.map(v => `<option value="${v}">${v}</option>`).join('');
   };
 
@@ -312,7 +326,7 @@ function showTab(tabId, element) {
 // ═══════════════════════════════════════════════
 // ENGINE DE FILTROS E DATAS (MANTIDO IGUAL)
 // ═══════════════════════════════════════════════
-function applyFilters() {
+function applyFilters(keepPage = false) {
   const fStatus = document.getElementById('f-status').value.toUpperCase();
   const fVend = document.getElementById('f-vend').value;
   const fTransp = document.getElementById('f-transp').value;
@@ -343,12 +357,11 @@ function applyFilters() {
         const prev = parseBrDate(item.previsao);
         if (!prev) return false;
         const hoje = todayMidnight();
-        
+
         if (urgencyFilter === 'hoje') {
           if (item.entrega || prev.getTime() !== hoje.getTime()) return false;
-        } 
+        }
         else if (urgencyFilter === 'atraso') {
-          // Regra exata: Ainda não foi entregue (!item.entrega) e previsão menor que hoje
           if (item.entrega && item.entrega.trim() !== '' || prev.getTime() >= hoje.getTime()) return false;
         }
       }
@@ -356,7 +369,11 @@ function applyFilters() {
     return true;
   });
 
-  currentPage = 1;
+  // Mantém a página atual se for chamado pelo auto-refresh (keepPage = true)
+  if (!keepPage) {
+    currentPage = 1;
+  }
+
   executeDataRefresh();
 }
 
@@ -396,7 +413,7 @@ function clearFilters() {
   });
 
   urgencyFilter = null;
-  
+
   // Verifica se a tag de urgência existe antes de ocultá-la
   const urgencyTag = document.getElementById('urgency-tag');
   if (urgencyTag) {
@@ -416,7 +433,7 @@ function setPreset(preset, el) {
   const hoje = new Date();
   let de = new Date(), ate = new Date();
 
-  switch(preset) {
+  switch (preset) {
     case 'hoje': break;
     case '7d': de.setDate(hoje.getDate() - 7); break;
     case 'semana': de.setDate(hoje.getDate() - hoje.getDay()); break;
@@ -426,7 +443,7 @@ function setPreset(preset, el) {
 
   document.getElementById('f-dfrom').value = de.toISOString().split('T')[0];
   document.getElementById('f-dto').value = ate.toISOString().split('T')[0];
-  
+
   const tag = document.getElementById('period-tag');
   tag.style.display = 'inline-flex';
   tag.querySelector('.ptag-txt').innerText = el ? el.innerText : 'Período customizado';
@@ -474,7 +491,7 @@ function renderDashboard() {
   document.getElementById('kpi-ent-pct').innerText = total > 0 ? Math.round((entregues / total) * 100) + '%' : '0%';
   document.getElementById('kpi-trans').innerText = emTransito;
 
-  const mesNomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const mesNomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   const agora = new Date();
   document.getElementById('chip-date').innerText = `${mesNomes[agora.getMonth()]} de ${agora.getFullYear()}`;
 
@@ -488,11 +505,11 @@ function renderDashboard() {
   }
 
   let entregarHoje = 0, emAtraso = 0, entreguesNoPrazo = 0, entreguesAtrasados = 0;
-  
+
   data.forEach(item => {
     const prev = parseBrDate(item.previsao);
     const temEntrega = item.entrega && item.entrega.trim() !== '' && item.entrega !== 'dd/mm/aaaa';
-    
+
     // Notas em atraso: sem data de entrega válida e com previsão menor que hoje
     if (!temEntrega) {
       if (!prev) return;
@@ -547,7 +564,7 @@ function renderDashboard() {
   if (data.length === 0) {
     rBody.innerHTML = `<tr><td colspan="8" class="empty">Nenhum registro com emissão no mês atual.</td></tr>`;
   } else {
-    rBody.innerHTML = [...data].sort((a,b) => b.emissao.localeCompare(a.emissao)).slice(0, 10).map(item => `
+    rBody.innerHTML = [...data].sort((a, b) => b.emissao.localeCompare(a.emissao)).slice(0, 10).map(item => `
       <tr>
         <td class="td-mono">${item.id}</td>
         <td>${item.vendedor}</td>
@@ -601,157 +618,157 @@ function renderChartsEngine(data) {
   if (ctxVend) {
     chartVendInstance = new Chart(ctxVend, {
       type: 'bar',
-      data: { 
-        labels: Object.keys(vendData), 
-        datasets: [{ 
-          label: 'Faturamento', 
-          data: Object.values(vendData), 
-          backgroundColor: colors.blue, 
-          borderRadius: 6 
-        }] 
+      data: {
+        labels: Object.keys(vendData),
+        datasets: [{
+          label: 'Faturamento',
+          data: Object.values(vendData),
+          backgroundColor: colors.blue,
+          borderRadius: 6
+        }]
       },
-      options: { 
+      options: {
         indexAxis: 'y',
-        responsive: true, 
-        maintainAspectRatio: false, 
-        plugins: { 
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: function(context) {
+              label: function (context) {
                 let label = context.dataset.label || '';
                 if (label) {
                   label += ': ';
                 }
                 if (context.parsed.x !== null) {
-                  label += new Intl.NumberFormat('pt-BR', { 
-                    style: 'currency', 
-                    currency: 'BRL' 
+                  label += new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
                   }).format(context.parsed.x);
                 }
                 return label;
               }
             }
           }
-        }, 
-        scales: { 
-  y: { 
-    grid: { display: false }, 
-    ticks: { 
-      font: { size: 10 },
-      crossAlign: 'far', // Força o alinhamento do texto à extrema esquerda
-      callback: function(value) {
-        let label = this.getLabelForValue(value) || '';
-        const limiteCaracteres = 15; // Ajuste conforme o espaço em tela
-        
-        // Aplica o corte e adiciona reticências se exceder o limite
-        if (label.length > limiteCaracteres) {
-          return label.substring(0, limiteCaracteres) + '...';
+        },
+        scales: {
+          y: {
+            grid: { display: false },
+            ticks: {
+              font: { size: 10 },
+              crossAlign: 'far', // Força o alinhamento do texto à extrema esquerda
+              callback: function (value) {
+                let label = this.getLabelForValue(value) || '';
+                const limiteCaracteres = 15; // Ajuste conforme o espaço em tela
+
+                // Aplica o corte e adiciona reticências se exceder o limite
+                if (label.length > limiteCaracteres) {
+                  return label.substring(0, limiteCaracteres) + '...';
+                }
+                return label;
+              }
+            }
+          },
+          x: {
+            ticks: {
+              font: { size: 10 },
+              callback: function (value, index, values) {
+                return new Intl.NumberFormat('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL'
+                }).format(value);
+              }
+            }
+          }
         }
-        return label;
-      }
-    } 
-  }, 
-  x: { 
-    ticks: { 
-      font: { size: 10 },
-      callback: function(value, index, values) {
-        return new Intl.NumberFormat('pt-BR', { 
-          style: 'currency', 
-          currency: 'BRL' 
-        }).format(value);
-      }
-    } 
-  } 
-}
       }
     });
   }
 
   const transpData = {};
 
-// 1. Agrupando os valores pela chave 'transportadora'
-data.forEach(i => { 
-  // O 'if' previne que transportadoras vazias ou indefinidas quebrem o gráfico
-  if (i.transportadora) {
-    const nomeTransp = i.transportadora.trim();
-    transpData[nomeTransp] = (transpData[nomeTransp] || 0) + (i.valorC || 0); 
-  }
-});
+  // 1. Agrupando os valores pela chave 'transportadora'
+  data.forEach(i => {
+    // O 'if' previne que transportadoras vazias ou indefinidas quebrem o gráfico
+    if (i.transportadora) {
+      const nomeTransp = i.transportadora.trim();
+      transpData[nomeTransp] = (transpData[nomeTransp] || 0) + (i.valorC || 0);
+    }
+  });
 
-// 2. Buscando o novo elemento no DOM (Certifique-se de ter id="c-transp" no seu HTML)
-const ctxTransp = document.getElementById('c-transp');
+  // 2. Buscando o novo elemento no DOM (Certifique-se de ter id="c-transp" no seu HTML)
+  const ctxTransp = document.getElementById('c-transp');
 
-if (ctxTransp) {
-  chartTranspInstance = new Chart(ctxTransp, {
-    type: 'bar',
-    data: { 
-      labels: Object.keys(transpData), 
-      datasets: [{ 
-        label: 'Valor por Transportadora', // Ajuste a label conforme necessário
-        data: Object.values(transpData), 
-        backgroundColor: colors.blue, // Requer que o objeto 'colors' esteja declarado no seu script
-        borderRadius: 6 
-      }] 
-    },
-    options: { 
-      indexAxis: 'y', // Mantém o gráfico em barras horizontais
-      responsive: true, 
-      maintainAspectRatio: false, 
-      plugins: { 
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              let label = context.dataset.label || '';
-              if (label) {
-                label += ': ';
+  if (ctxTransp) {
+    chartTranspInstance = new Chart(ctxTransp, {
+      type: 'bar',
+      data: {
+        labels: Object.keys(transpData),
+        datasets: [{
+          label: 'Valor por Transportadora', // Ajuste a label conforme necessário
+          data: Object.values(transpData),
+          backgroundColor: colors.blue, // Requer que o objeto 'colors' esteja declarado no seu script
+          borderRadius: 6
+        }]
+      },
+      options: {
+        indexAxis: 'y', // Mantém o gráfico em barras horizontais
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function (context) {
+                let label = context.dataset.label || '';
+                if (label) {
+                  label += ': ';
+                }
+                if (context.parsed.x !== null) {
+                  // Formatação monetária (BRL) para o tooltip
+                  label += new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                  }).format(context.parsed.x);
+                }
+                return label;
               }
-              if (context.parsed.x !== null) {
-                // Formatação monetária (BRL) para o tooltip
-                label += new Intl.NumberFormat('pt-BR', { 
-                  style: 'currency', 
-                  currency: 'BRL' 
-                }).format(context.parsed.x);
+            }
+          }
+        },
+        scales: {
+          y: {
+            grid: { display: false },
+            ticks: {
+              font: { size: 10 },
+              crossAlign: 'far', // Força o alinhamento do texto à extrema esquerda
+              callback: function (value) {
+                let label = this.getLabelForValue(value) || '';
+                const limiteCaracteres = 15; // Ajuste conforme o espaço em tela
+
+                // Aplica o corte e adiciona reticências se exceder o limite
+                if (label.length > limiteCaracteres) {
+                  return label.substring(0, limiteCaracteres) + '...';
+                }
+                return label;
               }
-              return label;
+            }
+          },
+          x: {
+            ticks: {
+              font: { size: 10 },
+              callback: function (value, index, values) {
+                return new Intl.NumberFormat('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL'
+                }).format(value);
+              }
             }
           }
         }
-      }, 
-      scales: { 
-  y: { 
-    grid: { display: false }, 
-    ticks: { 
-      font: { size: 10 },
-      crossAlign: 'far', // Força o alinhamento do texto à extrema esquerda
-      callback: function(value) {
-        let label = this.getLabelForValue(value) || '';
-        const limiteCaracteres = 15; // Ajuste conforme o espaço em tela
-        
-        // Aplica o corte e adiciona reticências se exceder o limite
-        if (label.length > limiteCaracteres) {
-          return label.substring(0, limiteCaracteres) + '...';
-        }
-        return label;
       }
-    } 
-  }, 
-  x: { 
-    ticks: { 
-      font: { size: 10 },
-      callback: function(value, index, values) {
-        return new Intl.NumberFormat('pt-BR', { 
-          style: 'currency', 
-          currency: 'BRL' 
-        }).format(value);
-      }
-    } 
-  } 
-}
-    }
-  });
-}
+    });
+  }
 
   // Renderiza o mapa coroplético de UF
   renderMapUF(data);
@@ -777,9 +794,9 @@ async function renderMapUF(data) {
     if (!d) return '#E2E8F0'; // Estado sem envios
     const ratio = d / maxEnvios;
     return ratio > 0.75 ? '#002B5C' :
-           ratio > 0.50 ? '#1B6FD5' :
-           ratio > 0.25 ? '#60A5FA' :
-                          '#BFDBFE';
+      ratio > 0.50 ? '#1B6FD5' :
+        ratio > 0.25 ? '#60A5FA' :
+          '#BFDBFE';
   }
 
   // 3. Inicializar o mapa Leaflet se não existir
@@ -819,7 +836,7 @@ async function renderMapUF(data) {
 
   // 6. Desenhar estados com cores dinâmicas baseadas nos dados
   geojsonLayer = L.geoJson(brasilGeoData, {
-    style: function(feature) {
+    style: function (feature) {
       const siglaUF = feature.properties.sigla;
       const count = ufCounts[siglaUF] || 0;
       return {
@@ -830,11 +847,11 @@ async function renderMapUF(data) {
         fillOpacity: 0.85
       };
     },
-    onEachFeature: function(feature, layer) {
+    onEachFeature: function (feature, layer) {
       const siglaUF = feature.properties.sigla;
       const nomeUF = feature.properties.name;
       const count = ufCounts[siglaUF] || 0;
-      
+
       layer.bindTooltip(
         `<strong>${nomeUF} (${siglaUF})</strong><br/>${count} envio(s)`,
         { permanent: false, direction: 'auto' }
@@ -887,7 +904,7 @@ function renderPedidos() {
       <td>${item.previsao}</td>
       <td>
         <input type="date" class="entrega-edit-input" value="${brToIso(item.entrega)}"
-               onchange="updatePedidoAPI(${item._rowId}, { entrega: this.value })">
+               onblur="if(this.value) updatePedidoAPI(${item._rowId}, { entrega: this.value })">
       </td>
       <td>
         <input type="text" class="contato-edit-input" value="${escapeHtml(item.contato)}"
@@ -950,7 +967,7 @@ async function updatePedidoAPI(rowId, updatePayload) {
         item.valorC = parseFloat(updatePayload.valor_frete) || 0;
         item.pct = calcPct(item.valorNF, item.valorC);
       }
-      
+
       executeDataRefresh();
       showToast('Alteração salva no banco de dados.');
     } else {
@@ -994,7 +1011,7 @@ async function deleteRecord(rowId) {
 }
 
 function formatDateToBr(str) {
-  if(!str || !str.includes('-')) return str;
+  if (!str || !str.includes('-')) return str;
   const parts = str.split('-');
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
@@ -1106,7 +1123,7 @@ function handleFile(e) {
   const isCSV = ext === 'csv';
   const reader = new FileReader();
 
-  reader.onload = async function(evt) {
+  reader.onload = async function (evt) {
     try {
       let rawRows = [];
       if (isCSV) {
@@ -1136,7 +1153,7 @@ function handleFile(e) {
       if (rawRows.length === 0) { showToast("O arquivo importado está vazio."); return; }
 
       const parseBR = (v) => v ? parseFloat(String(v).replace(/\./g, '').replace(',', '.')) || 0 : 0;
-      
+
       const payloadLote = rawRows.map(r => {
         const vNF = parseBR(r['Valor NF'] || r['VALOR'] || r['Valor']);
         const vC = parseBR(r['Valor Frete'] || r['Frete'] || r['Custo']);
@@ -1163,7 +1180,7 @@ function handleFile(e) {
       document.getElementById('import-ok').style.display = 'block';
 
       const res = await apiFetch('/api/pedidos/importar', { method: 'POST', body: JSON.stringify({ pedidos: payloadLote }) });
-      
+
       if (res.ok) {
         await loadPedidosFromDB();
         const apiResp = await res.json();
@@ -1191,9 +1208,9 @@ function csvEscape(value) {
 }
 
 function exportCSV() {
-  if(filteredData.length === 0) { showToast("Sem dados ativos para exportar."); return; }
+  if (filteredData.length === 0) { showToast("Sem dados ativos para exportar."); return; }
   const headers = ['#NF', 'Vendedor', 'Destinatario', 'UF', 'Municipio', 'Transportadora', 'Emissao', 'ValorNF', 'ValorFrete', 'PercFrete', 'Previsao', 'DataEntregue', 'Contato', 'Status', 'Obs', 'ObsRastreio'];
-  const rows = filteredData.map(i => [ i.id, i.vendedor, i.destinatario, i.uf, i.municipio, i.transportadora, i.emissao, i.valorNF, i.valorC, calcPct(i.valorNF, i.valorC), i.previsao, i.entrega, i.contato, i.status, i.obs, i.obs_rastreio ].map(csvEscape).join(';'));
+  const rows = filteredData.map(i => [i.id, i.vendedor, i.destinatario, i.uf, i.municipio, i.transportadora, i.emissao, i.valorNF, i.valorC, calcPct(i.valorNF, i.valorC), i.previsao, i.entrega, i.contato, i.status, i.obs, i.obs_rastreio].map(csvEscape).join(';'));
   const csvContent = "\uFEFF" + headers.join(';') + "\n" + rows.join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -1213,7 +1230,7 @@ function closeModal() { document.getElementById('overlay').classList.remove('ope
 // ═══════════════════════════════════════════════
 // AUTENTICAÇÃO E GESTÃO DE USUÁRIOS API
 // ═══════════════════════════════════════════════
-const TIPOS_USUARIO = ['Administrador','Gerente de Logística', 'Gerente', 'Operador', 'Vendedor'];
+const TIPOS_USUARIO = ['Administrador', 'Gerente de Logística', 'Gerente', 'Operador', 'Vendedor'];
 
 function applyLoggedUser() {
   if (!currentUser) return;
@@ -1221,17 +1238,17 @@ function applyLoggedUser() {
 
   // Avatar e nome na sidebar
   const initials = currentUser.nome.split(' ').filter(Boolean).slice(0, 2).map(n => n[0]).join('').toUpperCase();
-  document.getElementById('user-av').innerText   = initials || '?';
+  document.getElementById('user-av').innerText = initials || '?';
   document.getElementById('user-name').innerText = currentUser.nome;
   document.getElementById('user-role').innerText = tipo;
   document.getElementById('user-pill').setAttribute('data-tooltip', `${currentUser.nome} — ${tipo}`);
 
   // ── Permissões por tipo ──────────────────────────────────────
-  const PODE_CRUD_PEDIDO  = ['Administrador','Gerente de Logística','Operador'].includes(tipo);
-  const PODE_VER_ADMIN    = ['Administrador','Gerente de Logística','Operador'].includes(tipo);
-  const PODE_CRUD_USUARIO = ['Administrador','Gerente de Logística'].includes(tipo);
-  const IS_VENDEDOR       = tipo === 'Vendedor';
-  const IS_GERENTE        = tipo === 'Gerente';
+  const PODE_CRUD_PEDIDO = ['Administrador', 'Gerente de Logística', 'Operador'].includes(tipo);
+  const PODE_VER_ADMIN = ['Administrador', 'Gerente de Logística', 'Operador'].includes(tipo);
+  const PODE_CRUD_USUARIO = ['Administrador', 'Gerente de Logística'].includes(tipo);
+  const IS_VENDEDOR = tipo === 'Vendedor';
+  const IS_GERENTE = tipo === 'Gerente';
 
   // ── Aba Administração ────────────────────────────────────────
   const adminMenuItem = document.querySelector('.sb-nav li[data-tooltip="Administração"]');
@@ -1244,11 +1261,11 @@ function applyLoggedUser() {
 
   // ── Botões da topbar ─────────────────────────────────────────
   const btnImportar = document.querySelector('[onclick="openModal()"]');
-  const btnManual   = document.querySelector('[onclick="openManualModal()"]');
+  const btnManual = document.querySelector('[onclick="openManualModal()"]');
   const btnExportar = document.querySelector('[onclick="exportCSV()"]');
 
   if (btnImportar) btnImportar.style.display = PODE_CRUD_PEDIDO ? '' : 'none';
-  if (btnManual)   btnManual.style.display   = PODE_CRUD_PEDIDO ? '' : 'none';
+  if (btnManual) btnManual.style.display = PODE_CRUD_PEDIDO ? '' : 'none';
   // Gerente pode exportar, Vendedor não
   if (btnExportar) btnExportar.style.display = IS_VENDEDOR ? 'none' : '';
 
@@ -1262,7 +1279,7 @@ async function logout() {
   fecharPerfilModal();
   try {
     await apiFetch('/api/auth/logout', { method: 'POST' });
-  } catch (e) {} // Força a limpeza local mesmo se falhar
+  } catch (e) { } // Força a limpeza local mesmo se falhar
   currentUser = null;
   sessionStorage.removeItem('fortecare_session');
   window.location.replace('login.html');
@@ -1274,9 +1291,9 @@ async function loadAndRenderUsersPanel() {
   if (!card) return;
 
   const tipo = currentUser?.tipo;
-  const PODE_VER_ADMIN    = ['Administrador','Gerente de Logística','Operador'].includes(tipo);
-  const PODE_CRUD_USUARIO = ['Administrador','Gerente de Logística'].includes(tipo);
-  const PODE_DEPARA       = ['Administrador','Gerente de Logística','Operador'].includes(tipo);
+  const PODE_VER_ADMIN = ['Administrador', 'Gerente de Logística', 'Operador'].includes(tipo);
+  const PODE_CRUD_USUARIO = ['Administrador', 'Gerente de Logística'].includes(tipo);
+  const PODE_DEPARA = ['Administrador', 'Gerente de Logística', 'Operador'].includes(tipo);
 
   if (!PODE_VER_ADMIN) {
     card.innerHTML = `<div class="chart-title" style="margin-bottom:12px">Gestão de Usuários</div>
@@ -1301,9 +1318,9 @@ async function loadAndRenderUsersPanel() {
           <thead><tr><th>Nome</th><th>E-mail</th><th>Setor</th><th>Tipo</th><th>Status</th>${PODE_CRUD_USUARIO ? '<th>Ações</th>' : ''}</tr></thead>
           <tbody>
             ${users.map(u => {
-              const isAdmin      = u.tipo === 'Administrador';
-              const podeAlterar  = PODE_CRUD_USUARIO && !(isAdmin && tipo !== 'Administrador');
-              return `<tr>
+      const isAdmin = u.tipo === 'Administrador';
+      const podeAlterar = PODE_CRUD_USUARIO && !(isAdmin && tipo !== 'Administrador');
+      return `<tr>
                 <td>${escapeHtml(u.nome)}</td>
                 <td>${escapeHtml(u.email)}</td>
                 <td>${escapeHtml(u.setor || '-')}</td>
@@ -1314,7 +1331,7 @@ async function loadAndRenderUsersPanel() {
                   ${podeAlterar ? `<button class="delete-btn" title="Excluir" onclick="deleteUser(${u.id}, '${escapeHtml(u.nome)}')">🗑</button>` : ''}
                 </td>` : ''}
               </tr>`;
-            }).join('')}
+    }).join('')}
           </tbody>
         </table>
       </div>
@@ -1342,18 +1359,18 @@ function openUserModal(id) {
   if (isEdit && window.loadedUsers) {
     const user = window.loadedUsers.find(u => u.id === id);
     if (!user) return;
-    document.getElementById('u-nome').value  = user.nome;
+    document.getElementById('u-nome').value = user.nome;
     document.getElementById('u-email').value = user.email;
     document.getElementById('u-senha').value = '';
     document.getElementById('u-setor').value = user.setor || '';
-    document.getElementById('u-tipo').value  = user.tipo;
+    document.getElementById('u-tipo').value = user.tipo;
     document.getElementById('u-senha-hint').innerText = '(deixe em branco para manter a senha atual)';
   } else {
-    document.getElementById('u-nome').value  = '';
+    document.getElementById('u-nome').value = '';
     document.getElementById('u-email').value = '';
     document.getElementById('u-senha').value = '';
     document.getElementById('u-setor').value = '';
-    document.getElementById('u-tipo').value  = 'Operador';
+    document.getElementById('u-tipo').value = 'Operador';
     document.getElementById('u-senha-hint').innerText = '';
   }
   document.getElementById('user-overlay').classList.add('open');
@@ -1386,7 +1403,7 @@ async function saveUser() {
   try {
     const endpoint = editId ? `/api/usuarios/${editId}` : '/api/usuarios/';
     const method = editId ? 'PUT' : 'POST';
-    
+
     const res = await apiFetch(endpoint, { method, body: JSON.stringify(payload) });
 
     if (res.ok) {
@@ -1398,7 +1415,7 @@ async function saveUser() {
       errorEl.innerText = err.detail || 'Erro ao salvar usuário.';
       errorEl.style.display = 'block';
     }
-  } catch(e) {
+  } catch (e) {
     errorEl.innerText = 'Falha na comunicação com o servidor.';
     errorEl.style.display = 'block';
   }
@@ -1417,7 +1434,7 @@ async function deleteUser(id, nome) {
       const err = await res.json();
       alert(err.detail || 'Erro ao excluir usuário.');
     }
-  } catch(e) { showToast('Falha na comunicação com o servidor.'); }
+  } catch (e) { showToast('Falha na comunicação com o servidor.'); }
 }
 
 // ═══════════════════════════════════════════════
@@ -1425,31 +1442,31 @@ async function deleteUser(id, nome) {
 // ═══════════════════════════════════════════════
 function renderTransportadoras() {
   const grid = document.getElementById('transp-grid');
-  if(!grid) return;
+  if (!grid) return;
   const dFrom = document.getElementById('f-transp-from')?.value, dTo = document.getElementById('f-transp-to')?.value, hoje = todayMidnight(), transportadoras = {};
 
   dataSET.forEach(p => {
     if (dFrom && p.emissao < dFrom) return;
     if (dTo && p.emissao > dTo) return;
     const t = p.transportadora;
-    if(!transportadoras[t]) transportadoras[t] = { name: t, total: 0, entregues: 0, transito: 0, faturamento: 0, frete: 0, noPrazo: 0, atraso: 0 };
+    if (!transportadoras[t]) transportadoras[t] = { name: t, total: 0, entregues: 0, transito: 0, faturamento: 0, frete: 0, noPrazo: 0, atraso: 0 };
     transportadoras[t].total++; transportadoras[t].faturamento += (p.valorNF || 0); transportadoras[t].frete += (p.valorC || 0);
-    if(p.status.toUpperCase() === 'ENTREGUE') {
+    if (p.status.toUpperCase() === 'ENTREGUE') {
       transportadoras[t].entregues++;
       const entregaDt = parseBrDate(p.entrega), previsaoDt = parseBrDate(p.previsao);
       if (entregaDt && previsaoDt && entregaDt.getTime() > previsaoDt.getTime()) transportadoras[t].atraso++;
       else transportadoras[t].noPrazo++;
     } else if (p.status.toUpperCase() === 'EM TRÂNSITO') { transportadoras[t].transito++; }
     if (isPending(p)) {
-       const previsaoDt = parseBrDate(p.previsao);
-       if (previsaoDt && previsaoDt.getTime() < hoje.getTime()) transportadoras[t].atraso++;
+      const previsaoDt = parseBrDate(p.previsao);
+      if (previsaoDt && previsaoDt.getTime() < hoje.getTime()) transportadoras[t].atraso++;
     }
   });
 
   grid.innerHTML = Object.values(transportadoras).map(t => {
     const baseSLA = t.noPrazo + t.atraso, sla = baseSLA > 0 ? Math.round((t.noPrazo / baseSLA) * 100) : 100;
     const kpiFrete = t.faturamento > 0 ? ((t.frete / t.faturamento) * 100).toFixed(1) : 0;
-    const iniciais = t.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+    const iniciais = t.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
     return `
       <div class="perf-card">
         <div class="perf-header"><div class="perf-av" style="background:var(--navy)">${iniciais}</div><div><div class="perf-name">${t.name}</div><div class="perf-count">${t.total} envios registrados</div></div></div>
@@ -1470,29 +1487,29 @@ function renderTransportadoras() {
 
 function renderVendedores() {
   const grid = document.getElementById('vend-grid');
-  if(!grid) return;
+  if (!grid) return;
   const dFrom = document.getElementById('f-vend-from')?.value, dTo = document.getElementById('f-vend-to')?.value, hoje = todayMidnight(), vendedores = {};
 
   dataSET.forEach(p => {
     if (dFrom && p.emissao < dFrom) return;
     if (dTo && p.emissao > dTo) return;
     const v = p.vendedor;
-    if(!vendedores[v]) vendedores[v] = { name: v, pedidos: 0, faturamento: 0, frete: 0, entregues: 0, noPrazo: 0, atraso: 0 };
+    if (!vendedores[v]) vendedores[v] = { name: v, pedidos: 0, faturamento: 0, frete: 0, entregues: 0, noPrazo: 0, atraso: 0 };
     vendedores[v].pedidos++; vendedores[v].faturamento += (p.valorNF || 0); vendedores[v].frete += (p.valorC || 0);
-    if(p.status.toUpperCase() === 'ENTREGUE') {
+    if (p.status.toUpperCase() === 'ENTREGUE') {
       vendedores[v].entregues++;
       const entregaDt = parseBrDate(p.entrega), previsaoDt = parseBrDate(p.previsao);
       if (entregaDt && previsaoDt && entregaDt.getTime() > previsaoDt.getTime()) vendedores[v].atraso++; else vendedores[v].noPrazo++;
     }
     if (isPending(p)) {
-       const previsaoDt = parseBrDate(p.previsao);
-       if (previsaoDt && previsaoDt.getTime() < hoje.getTime()) vendedores[v].atraso++;
+      const previsaoDt = parseBrDate(p.previsao);
+      if (previsaoDt && previsaoDt.getTime() < hoje.getTime()) vendedores[v].atraso++;
     }
   });
 
   const maiorFaturamento = Math.max(...Object.values(vendedores).map(v => v.faturamento), 1);
   grid.innerHTML = Object.values(vendedores).map(v => {
-    const pctVolumeTotal = Math.round((v.faturamento / maiorFaturamento) * 100), ticketMedio = v.pedidos > 0 ? (v.faturamento / v.pedidos) : 0, baseSLA = v.noPrazo + v.atraso, sla = baseSLA > 0 ? Math.round((v.noPrazo / baseSLA) * 100) : 100, kpiFrete = v.faturamento > 0 ? ((v.frete / v.faturamento) * 100).toFixed(1) : 0, iniciais = v.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+    const pctVolumeTotal = Math.round((v.faturamento / maiorFaturamento) * 100), ticketMedio = v.pedidos > 0 ? (v.faturamento / v.pedidos) : 0, baseSLA = v.noPrazo + v.atraso, sla = baseSLA > 0 ? Math.round((v.noPrazo / baseSLA) * 100) : 100, kpiFrete = v.faturamento > 0 ? ((v.frete / v.faturamento) * 100).toFixed(1) : 0, iniciais = v.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
     return `
       <div class="perf-card">
         <div class="perf-header"><div class="perf-av" style="background:var(--blue)">${iniciais}</div><div><div class="perf-name">${v.name}</div><div class="perf-count">${v.pedidos} vendas fechadas</div></div></div>
@@ -1512,7 +1529,7 @@ function renderVendedores() {
 
 async function carregarDePara() {
   const selectEl = document.getElementById('dp-usuario-id');
-  const tbodyEl  = document.getElementById('tabela-de-para');
+  const tbodyEl = document.getElementById('tabela-de-para');
 
   // Carrega usuários no select
   if (selectEl) {
@@ -1530,7 +1547,7 @@ async function carregarDePara() {
     } catch (e) {
       selectEl.innerHTML = '<option value="">Erro ao carregar usuários</option>';
     }
-}
+  }
 
   // Carrega vínculos existentes
   if (tbodyEl) {
@@ -1562,54 +1579,54 @@ async function carregarDePara() {
 }
 
 async function salvarDePara() {
-    const inputNome = document.getElementById('dp-nome-planilha');
-    const selectUsuario = document.getElementById('dp-usuario-id');
+  const inputNome = document.getElementById('dp-nome-planilha');
+  const selectUsuario = document.getElementById('dp-usuario-id');
 
-    const nome_planilha = inputNome ? inputNome.value.trim() : '';
-    const usuario_id = selectUsuario ? parseInt(selectUsuario.value) : '';
+  const nome_planilha = inputNome ? inputNome.value.trim() : '';
+  const usuario_id = selectUsuario ? parseInt(selectUsuario.value) : '';
 
-    if (!nome_planilha || !usuario_id) {
-        alert('Por favor, preencha o nome na planilha e selecione um usuário do sistema.');
-        return;
+  if (!nome_planilha || !usuario_id) {
+    alert('Por favor, preencha o nome na planilha e selecione um usuário do sistema.');
+    return;
+  }
+
+  try {
+    const response = await apiFetch('/api/vendedores/de-para', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome_planilha, usuario_id })
+    });
+
+    if (response.ok) {
+      alert('Vínculo salvo com sucesso!');
+      if (inputNome) inputNome.value = '';
+      if (selectUsuario) selectUsuario.value = '';
+      carregarDePara();
+    } else {
+      alert('Erro ao salvar o vínculo.');
     }
-
-    try {
-        const response = await apiFetch('/api/vendedores/de-para', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome_planilha, usuario_id })
-        });
-
-        if (response.ok) {
-            alert('Vínculo salvo com sucesso!');
-            if (inputNome) inputNome.value = '';
-            if (selectUsuario) selectUsuario.value = '';
-            carregarDePara();
-        } else {
-            alert('Erro ao salvar o vínculo.');
-        }
-    } catch (e) {
-        console.error('Erro ao salvar vínculo De-Para:', e);
-        alert('Erro de conexão ao salvar vínculo.');
-    }
+  } catch (e) {
+    console.error('Erro ao salvar vínculo De-Para:', e);
+    alert('Erro de conexão ao salvar vínculo.');
+  }
 }
 
 async function deletarDePara(id) {
-    if (!confirm('Deseja realmente remover este vínculo?')) return;
+  if (!confirm('Deseja realmente remover este vínculo?')) return;
 
-    try {
-        const response = await apiFetch(`/api/vendedores/de-para/${id}`, {
-            method: 'DELETE'
-        });
+  try {
+    const response = await apiFetch(`/api/vendedores/de-para/${id}`, {
+      method: 'DELETE'
+    });
 
-        if (response.ok) {
-            carregarDePara();
-        } else {
-            alert('Erro ao remover o vínculo.');
-        }
-    } catch (e) {
-        console.error('Erro ao deletar vínculo De-Para:', e);
+    if (response.ok) {
+      carregarDePara();
+    } else {
+      alert('Erro ao remover o vínculo.');
     }
+  } catch (e) {
+    console.error('Erro ao deletar vínculo De-Para:', e);
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -1623,21 +1640,21 @@ function abrirPerfilModal() {
     .split(' ').filter(Boolean).slice(0, 2).map(n => n[0]).join('').toUpperCase();
 
   document.getElementById('perfil-av-grande').innerText = initials || '?';
-  document.getElementById('perfil-titulo').innerText    = currentUser.nome;
-  document.getElementById('perfil-cargo').innerText     = tipo;
-  document.getElementById('perfil-nome').value          = currentUser.nome;
-  document.getElementById('perfil-senha').value         = '';
-  document.getElementById('perfil-confirma').value      = '';
+  document.getElementById('perfil-titulo').innerText = currentUser.nome;
+  document.getElementById('perfil-cargo').innerText = tipo;
+  document.getElementById('perfil-nome').value = currentUser.nome;
+  document.getElementById('perfil-senha').value = '';
+  document.getElementById('perfil-confirma').value = '';
   document.getElementById('perfil-confirma-wrap').style.display = 'none';
 
   const errEl = document.getElementById('perfil-error');
-  const okEl  = document.getElementById('perfil-success');
+  const okEl = document.getElementById('perfil-success');
   errEl.style.display = 'none';
-  okEl.style.display  = 'none';
+  okEl.style.display = 'none';
 
   const btn = document.getElementById('perfil-btn-salvar');
   btn.innerText = 'Salvar';
-  btn.disabled  = false;
+  btn.disabled = false;
 
   // Mostra campo de confirmação só ao digitar nova senha
   document.getElementById('perfil-senha').oninput = function () {
@@ -1655,18 +1672,18 @@ function fecharPerfilModal(event) {
 }
 
 async function salvarPerfil() {
-  const nome     = document.getElementById('perfil-nome').value.trim();
-  const senha    = document.getElementById('perfil-senha').value;
+  const nome = document.getElementById('perfil-nome').value.trim();
+  const senha = document.getElementById('perfil-senha').value;
   const confirma = document.getElementById('perfil-confirma').value;
-  const errEl    = document.getElementById('perfil-error');
-  const okEl     = document.getElementById('perfil-success');
-  const btn      = document.getElementById('perfil-btn-salvar');
+  const errEl = document.getElementById('perfil-error');
+  const okEl = document.getElementById('perfil-success');
+  const btn = document.getElementById('perfil-btn-salvar');
 
   errEl.style.display = 'none';
-  okEl.style.display  = 'none';
+  okEl.style.display = 'none';
 
   if (!nome) {
-    errEl.innerText     = 'O nome não pode ficar em branco.';
+    errEl.innerText = 'O nome não pode ficar em branco.';
     errEl.style.display = 'block';
     document.getElementById('perfil-nome').focus();
     return;
@@ -1674,37 +1691,37 @@ async function salvarPerfil() {
 
   if (senha) {
     if (senha.length < 6) {
-      errEl.innerText     = 'A senha deve ter no mínimo 6 caracteres.';
+      errEl.innerText = 'A senha deve ter no mínimo 6 caracteres.';
       errEl.style.display = 'block';
       return;
     }
     if (senha !== confirma) {
-      errEl.innerText     = 'As senhas não coincidem.';
+      errEl.innerText = 'As senhas não coincidem.';
       errEl.style.display = 'block';
       return;
     }
   }
 
   btn.innerText = 'Salvando…';
-  btn.disabled  = true;
+  btn.disabled = true;
 
   try {
     const payload = { nome };
     if (senha) payload.nova_senha = senha;
 
     const res = await apiFetch('/api/auth/meu-perfil', {
-      method:  'PUT',
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(payload)
+      body: JSON.stringify(payload)
     });
 
     const data = await res.json();
 
     if (!res.ok) {
-      errEl.innerText     = data.detail || 'Erro ao salvar perfil.';
+      errEl.innerText = data.detail || 'Erro ao salvar perfil.';
       errEl.style.display = 'block';
       btn.innerText = 'Salvar';
-      btn.disabled  = false;
+      btn.disabled = false;
       return;
     }
 
@@ -1714,7 +1731,7 @@ async function salvarPerfil() {
     sessionStorage.setItem('fortecare_session', JSON.stringify(currentUser));
     applyLoggedUser();
 
-    okEl.innerText     = senha ? 'Nome e senha atualizados com sucesso!' : 'Nome atualizado com sucesso!';
+    okEl.innerText = senha ? 'Nome e senha atualizados com sucesso!' : 'Nome atualizado com sucesso!';
     okEl.style.display = 'block';
 
     // Fecha o modal após 1.8 s
@@ -1723,9 +1740,9 @@ async function salvarPerfil() {
     }, 1800);
 
   } catch (err) {
-    errEl.innerText     = 'Não foi possível conectar ao servidor.';
+    errEl.innerText = 'Não foi possível conectar ao servidor.';
     errEl.style.display = 'block';
     btn.innerText = 'Salvar';
-    btn.disabled  = false;
+    btn.disabled = false;
   }
 }

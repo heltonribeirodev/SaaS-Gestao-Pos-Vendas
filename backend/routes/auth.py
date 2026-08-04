@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from jose import jwt, JWTError
 from dotenv import load_dotenv
 from pydantic import BaseModel
+from pathlib import Path
 import os
 import secrets
 import smtplib
@@ -12,7 +13,8 @@ from email.mime.text import MIMEText
 from backend.database import get_conn, release_conn, get_cursor
 from backend.models import LoginInput
 
-load_dotenv()
+# Carrega o .env com caminho absoluto — funciona independente do diretório de trabalho
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -100,7 +102,7 @@ def enviar_email_recuperacao(destino: str, token: str):
     corpo_email = f"""
     Olá,
     
-    Você solicitou a recuperação da sua senha no sistema ForteCare.
+    Você solicitou a recuperação da sua senha no sistema de Pós Vendas da ForteCare.
     Por favor, clique no link abaixo para criar uma nova senha:
     
     {link_recuperacao}
@@ -116,13 +118,10 @@ def enviar_email_recuperacao(destino: str, token: str):
     msg['From'] = smtp_user
     msg['To'] = destino
 
-    try:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls() # Inicia a conexão segura exigida pelo Gmail
-            server.login(smtp_user, smtp_pass)
-            server.send_message(msg)
-    except Exception as e:
-        print(f"⚠️ Erro ao enviar e-mail de recuperação para {destino}: {e}")
+    with smtplib.SMTP(smtp_host, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.send_message(msg)
 
 
 # =========================================================
