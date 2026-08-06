@@ -9,7 +9,7 @@ let currentSort = { col: 'id', asc: true };
 let urgencyFilter = null;
 let currentUser = null;
 
-const STATUS_OPTIONS = ['EM TRÂNSITO', 'EM ROTA DE ENTREGA', 'ENTREGUE', 'RETIDO FISCALIZAÇÃO', 'FOB'];
+const STATUS_OPTIONS = ['EM TRÂNSITO', 'EM ROTA DE ENTREGA', 'ENTREGUE', 'RETIDO FISCALIZAÇÃO', 'FOB', 'CANCELADO'];
 
 // Variáveis Globais dos Gráficos e Mapa
 let chartStatusInstance = null;
@@ -91,9 +91,11 @@ function brToIso(str) {
 }
 
 function isoToBr(str) {
-  if (!str || !str.includes('-') || str.startsWith('0001')) return '';
-  const [y, m, d] = str.split('-');
-  return `${d}/${m}/${y}`;
+  if (!str || typeof str !== 'string' || !str.includes('-') || str.startsWith('0001')) return '';
+  // Extrai apenas a parte da data YYYY-MM-DD ignorando hora/fuso
+  const dateOnly = str.split('T')[0].split(' ')[0];
+  const [y, m, d] = dateOnly.split('-');
+  return (y && m && d) ? `${d}/${m}/${y}` : '';
 }
 
 function excelToIsoDate(value) {
@@ -130,6 +132,7 @@ function getBadgeClass(status) {
     case 'ENTREGUE': return 'bE';
     case 'RETIDO FISCALIZAÇÃO': return 'bF';
     case 'FOB': return 'bFob';
+    case 'CANCELADO': return 'bC';
     default: return 'bT';
   }
 }
@@ -167,44 +170,60 @@ async function loadPedidosFromDB() {
     const rawData = await res.json();
 
     // Mapeia do formato do PostgreSQL para o formato esperado pela UI
-    dataSET = rawData.map((dbItem, index) => ({
-      _rowId: index,
-      _dbId: dbItem.id, // ID real do PostgreSQL para os PUT e DELETE
-      id: dbItem.nf || `S/N-${dbItem.id}`, // A UI usa 'id' para mostrar a NF
-      vendedor: dbItem.vendedor || 'NÃO INFORMADO',
-      valorNF: dbItem.valor_nf || 0,
-      valorC: dbItem.valor_frete || 0,
-      pct: dbItem.pct_frete || calcPct(dbItem.valor_nf, dbItem.valor_frete),
-      transportadora: dbItem.transportadora || 'NÃO INFORMADO',
-      emissao: dbItem.emissao,
-      destinatario: dbItem.destinatario || 'NÃO INFORMADO',
-      uf: dbItem.uf || '',
-      municipio: dbItem.municipio || '',
-      previsao: dbItem.previsao ? isoToBr(dbItem.previsao) : '-',
-      entrega: dbItem.entrega ? isoToBr(dbItem.entrega) : '',
-      dias: dbItem.dias || 0,
-      contato: dbItem.contato || '',
-      status: dbItem.status || 'EM TRÂNSITO',
-      obs: dbItem.obs || '',
-      obs_rastreio: dbItem.obs_rastreio || ''
-    }));
+    dataSET = rawData.map((dbItem, index) => {
 
-    // Captura AGORA (após o fetch) apenas os 3 selects que buildFilterDropdowns() destrói.
-    // Inputs de texto (f-q, g-search, f-dfrom, f-dto) preservam seus valores naturalmente
-    // e NÃO devem ser sobrescritos — isso evitava o bug de "caractere comido".
+      // ══════════════════════════════════════════════════════════════
+      // CORREÇÃO AQUI: Garantindo que o status seja EXCLUSIVAMENTE uma string
+      // ══════════════════════════════════════════════════════════════
+      let statusTratado = 'EM TRÂNSITO';
+      if (dbItem.status) {
+        if (typeof dbItem.status === 'object') {
+          // Se o backend mandou um objeto, tenta extrair a string da propriedade correta
+          // (Pode ser .valor, .nome, ou .status dependendo de como sua API serializa)
+          statusTratado = dbItem.status.valor || dbItem.status.status || dbItem.status.nome || 'EM TRÂNSITO';
+        } else {
+          // Se já for string, pega direto
+          statusTratado = dbItem.status;
+        }
+      }
+      // Força para String e deixa em maiúsculo para padronizar
+      statusTratado = String(statusTratado).toUpperCase().trim();
+
+      return {
+        _rowId: index,
+        _dbId: dbItem.id,
+        id: dbItem.nf || `S/N-${dbItem.id}`,
+        vendedor: dbItem.vendedor || 'NÃO INFORMADO',
+        valorNF: dbItem.valor_nf || 0,
+        valorC: dbItem.valor_frete || 0,
+        pct: dbItem.pct_frete || calcPct(dbItem.valor_nf, dbItem.valor_frete),
+        transportadora: dbItem.transportadora || 'NÃO INFORMADO',
+        emissao: dbItem.emissao,
+        destinatario: dbItem.destinatario || 'NÃO INFORMADO',
+        uf: dbItem.uf || '',
+        municipio: dbItem.municipio || '',
+        previsao: dbItem.previsao ? isoToBr(dbItem.previsao) : '-',
+        entrega: dbItem.entrega ? isoToBr(dbItem.entrega) : '',
+        dias: dbItem.dias || 0,
+        contato: dbItem.contato || '',
+        status: statusTratado, // <--- Aplicado o status 100% string aqui
+        obs: dbItem.obs || '',
+        obs_rastreio: dbItem.obs_rastreio || ''
+      };
+    });
+
     const _sel = (id) => document.getElementById(id)?.value || '';
     const _savedVend = _sel('f-vend');
     const _savedTransp = _sel('f-transp');
     const _savedUf = _sel('f-uf');
 
-    // Reconstrói os dropdowns (vendedor/transportadora/UF) e restaura seleções
     buildFilterDropdowns();
+
     const _set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
     _set('f-vend', _savedVend);
     _set('f-transp', _savedTransp);
     _set('f-uf', _savedUf);
 
-    // Re-aplica filtros mantendo a página atual (keepPage = true)
     applyFilters(true);
   } catch (error) {
     showToast('Falha ao carregar dados do servidor.');
@@ -218,16 +237,24 @@ let _lastSyncAt = null;
 
 /** Retorna true se algum modal/overlay estiver aberto — polling deve esperar */
 function _isAnyModalOpen() {
+  // 1. Verifica se algum modal/overlay está aberto
   const overlayIds = ['overlay', 'manual-overlay', 'user-overlay', 'perfil-overlay'];
-  return overlayIds.some(id => {
+  const modalAberto = overlayIds.some(id => {
     const el = document.getElementById(id);
     if (!el) return false;
     const cls = el.classList;
-    // Overlays de classe usam .open; o perfil-overlay usa display flex
-    if (cls.contains('open')) return true;
-    if (el.style.display === 'flex') return true;
-    return false;
+    return cls.contains('open') || el.style.display === 'flex';
   });
+
+  if (modalAberto) return true;
+
+  // 2. Impede a sincronização se o usuário estiver digitando/interagindo com algum input na tabela
+  const activeEl = document.activeElement;
+  if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'SELECT' || activeEl.tagName === 'TEXTAREA')) {
+    return true;
+  }
+
+  return false;
 }
 
 /** Atualiza o badge visual de sincronização */
@@ -327,13 +354,13 @@ function showTab(tabId, element) {
 // ENGINE DE FILTROS E DATAS (MANTIDO IGUAL)
 // ═══════════════════════════════════════════════
 function applyFilters(keepPage = false) {
-  const fStatus = document.getElementById('f-status').value.toUpperCase();
-  const fVend = document.getElementById('f-vend').value;
-  const fTransp = document.getElementById('f-transp').value;
-  const fUf = document.getElementById('f-uf').value;
-  const fQuery = document.getElementById('f-q').value.toLowerCase();
-  const fFrom = document.getElementById('f-dfrom').value;
-  const fTo = document.getElementById('f-dto').value;
+  const fStatus = (document.getElementById('f-status')?.value || '').toUpperCase();
+  const fVend = document.getElementById('f-vend')?.value || '';
+  const fTransp = document.getElementById('f-transp')?.value || '';
+  const fUf = document.getElementById('f-uf')?.value || '';
+  const fQuery = (document.getElementById('f-q')?.value || '').toLowerCase();
+  const fFrom = document.getElementById('f-dfrom')?.value || '';
+  const fTo = document.getElementById('f-dto')?.value || '';
 
   filteredData = dataSET.filter(item => {
     if (fStatus && item.status.toUpperCase() !== fStatus) return false;
@@ -353,6 +380,8 @@ function applyFilters(keepPage = false) {
         if (item.status.toUpperCase() !== 'RETIDO FISCALIZAÇÃO') return false;
       } else if (urgencyFilter === 'fob') {
         if (item.status.toUpperCase() !== 'FOB') return false;
+      } else if (urgencyFilter === 'cancelado') {
+        if (item.status.toUpperCase() !== 'CANCELADO') return false;
       } else {
         const prev = parseBrDate(item.previsao);
         if (!prev) return false;
@@ -389,6 +418,7 @@ function goToUrgent(type) {
     if (type === 'rota') txt = 'Em rota de entrega';
     if (type === 'retido') txt = 'Retido fiscalização';
     if (type === 'fob') txt = 'FOB';
+    if (type === 'cancelado') txt = 'Cancelados';
     tag.querySelector('.ptag-txt').innerText = txt;
   }
   applyFilters();
@@ -470,14 +500,18 @@ function clearDateFilter() {
 // RENDERIZADOR: DASHBOARD & GRÁFICOS
 // ═══════════════════════════════════════════════
 function renderDashboard() {
-  const data = getDashboardData();
+  const data = getDashboardData();       // dados do mês atual (KPI cards)
+  const allData = dataSET;              // todos os dados (alert cards de status operacional)
   const hoje = todayMidnight();
   const total = data.length;
   const entregues = data.filter(p => p.status.toUpperCase() === 'ENTREGUE').length;
   const emTransito = data.filter(p => p.status.toUpperCase() === 'EM TRÂNSITO').length;
-  const emRota = data.filter(p => p.status.toUpperCase() === 'EM ROTA DE ENTREGA').length;
-  const retido = data.filter(p => p.status.toUpperCase() === 'RETIDO FISCALIZAÇÃO').length;
-  const fob = data.filter(p => p.status.toUpperCase() === 'FOB').length;
+
+  // Alert cards: contagem global (sem filtro de mês) para refletir situação operacional real
+  const emRota = allData.filter(p => p.status.toUpperCase() === 'EM ROTA DE ENTREGA').length;
+  const retido = allData.filter(p => p.status.toUpperCase() === 'RETIDO FISCALIZAÇÃO').length;
+  const fob = allData.filter(p => p.status.toUpperCase() === 'FOB').length;
+  const cancelados = allData.filter(p => p.status.toUpperCase() === 'CANCELADO').length;
 
   const elRota = document.getElementById('qtd-rota');
   if (elRota) elRota.innerText = emRota;
@@ -485,6 +519,8 @@ function renderDashboard() {
   if (elRetido) elRetido.innerText = retido;
   const elFob = document.getElementById('qtd-fob');
   if (elFob) elFob.innerText = fob;
+  const elCancelados = document.getElementById('qtd-cancelados');
+  if (elCancelados) elCancelados.innerText = cancelados;
 
   document.getElementById('kpi-total').innerText = total;
   document.getElementById('kpi-ent').innerText = entregues;
@@ -506,22 +542,26 @@ function renderDashboard() {
 
   let entregarHoje = 0, emAtraso = 0, entreguesNoPrazo = 0, entreguesAtrasados = 0;
 
+  // Loop 1 — alert cards "Hoje" e "Em Atraso": usa allData (todos os meses) para não perder NFs abertas de meses anteriores
+  // Ignora CANCELADO e FOB pois não estão mais em trânsito ativo
+  allData.forEach(item => {
+    const s = (item.status || '').toUpperCase();
+    if (s === 'CANCELADO' || s === 'FOB') return;
+    const prev = parseBrDate(item.previsao);
+    const temEntrega = item.entrega && item.entrega.trim() !== '' && item.entrega !== 'dd/mm/aaaa';
+    if (temEntrega || !prev) return; // só conta pendentes sem entrega confirmada
+    if (prev.getTime() === hoje.getTime()) {
+      entregarHoje++;
+    } else if (prev.getTime() < hoje.getTime()) {
+      emAtraso++;
+    }
+  });
+
+  // Loop 2 — SLA e "Entregas Atrasadas" (KPI cards do mês): usa data filtrada pelo mês atual
   data.forEach(item => {
     const prev = parseBrDate(item.previsao);
     const temEntrega = item.entrega && item.entrega.trim() !== '' && item.entrega !== 'dd/mm/aaaa';
-
-    // Notas em atraso: sem data de entrega válida e com previsão menor que hoje
-    if (!temEntrega) {
-      if (!prev) return;
-      if (prev.getTime() === hoje.getTime()) {
-        entregarHoje++;
-      } else if (prev.getTime() < hoje.getTime()) {
-        emAtraso++;
-      }
-      return;
-    }
-
-    // Entregues fora do prazo: possui data de entrega e foi entregue após a previsão
+    if (!temEntrega) return; // só conta entregues (com data de entrega)
     const entregaDate = parseBrDate(item.entrega);
     if (entregaDate && prev) {
       if (entregaDate.getTime() > prev.getTime()) {
@@ -588,22 +628,33 @@ function renderChartsEngine(data) {
   if (chartTranspInstance) chartTranspInstance.destroy();
 
   // Gráfico Doughnut (Status)
-  const statusCounts = { 'ENTREGUE': 0, 'EM TRÂNSITO': 0, 'EM ROTA DE ENTREGA': 0, 'RETIDO FISCALIZAÇÃO': 0 };
+  const statusCounts = { 'ENTREGUE': 0, 'EM TRÂNSITO': 0, 'EM ROTA DE ENTREGA': 0, 'RETIDO FISCALIZAÇÃO': 0, 'FOB': 0, 'CANCELADO': 0 };
   data.forEach(i => {
     let s = i.status.toUpperCase();
     if (statusCounts[s] !== undefined) statusCounts[s]++;
   });
+  // Remove status sem ocorrências para não poluir o gráfico
+  Object.keys(statusCounts).forEach(k => { if (statusCounts[k] === 0) delete statusCounts[k]; });
 
+  const statusColorMap = {
+    'ENTREGUE': colors.teal,
+    'EM TRÂNSITO': colors.amber,
+    'EM ROTA DE ENTREGA': colors.orange,
+    'RETIDO FISCALIZAÇÃO': colors.red,
+    'FOB': '#A855F7',
+    'CANCELADO': '#9CA3AF'
+  };
   const ctxStatus = document.getElementById('c-status');
   if (ctxStatus) {
+    const chartColors = Object.keys(statusCounts).map(k => statusColorMap[k] || colors.muted);
     chartStatusInstance = new Chart(ctxStatus, {
       type: 'doughnut',
-      data: { labels: Object.keys(statusCounts), datasets: [{ data: Object.values(statusCounts), backgroundColor: [colors.teal, colors.amber, colors.orange, colors.red], borderWidth: 2, hoverOffset: 4 }] },
+      data: { labels: Object.keys(statusCounts), datasets: [{ data: Object.values(statusCounts), backgroundColor: chartColors, borderWidth: 2, hoverOffset: 4 }] },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
     const total = data.length;
-    document.getElementById('status-legend').innerHTML = Object.keys(statusCounts).map((key, index) => {
-      const color = [colors.teal, colors.amber, colors.orange, colors.red][index];
+    document.getElementById('status-legend').innerHTML = Object.keys(statusCounts).map((key) => {
+      const color = statusColorMap[key] || colors.muted;
       const count = statusCounts[key];
       const pct = total > 0 ? Math.round((count / total) * 100) : 0;
       return `<div class="sl-row"><div class="sl-left"><div class="sl-dot" style="background:${color}"></div>${key}</div><div class="sl-count">${count} <span style="color:var(--muted);font-weight:400">(${pct}%)</span></div></div>`;
@@ -612,7 +663,7 @@ function renderChartsEngine(data) {
 
   // Gráfico Bar (Faturamento Vendedor)
   const vendData = {};
-  data.forEach(i => { vendData[i.vendedor] = (vendData[i.vendedor] || 0) + i.valorC; });
+  data.forEach(i => { vendData[i.vendedor] = (vendData[i.vendedor] || 0) + (i.valorNF || 0); });
 
   const ctxVend = document.getElementById('c-vend');
   if (ctxVend) {
@@ -881,7 +932,9 @@ function renderPedidos() {
 
     // Se a coluna de ordenação for o ID/NF, força a ordem decrescente (maior número primeiro)
     if (currentSort.col === 'id') {
-      return Number(valB) - Number(valA);
+      const numA = parseFloat(String(valA).replace(/\D/g, '')) || 0;
+      const numB = parseFloat(String(valB).replace(/\D/g, '')) || 0;
+      return currentSort.asc ? numA - numB : numB - numA;
     }
 
     if (typeof valA === 'string') return currentSort.asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
@@ -904,7 +957,7 @@ function renderPedidos() {
       <td>${item.previsao}</td>
       <td>
         <input type="date" class="entrega-edit-input" value="${brToIso(item.entrega)}"
-               onblur="if(this.value) updatePedidoAPI(${item._rowId}, { entrega: this.value })">
+               onchange="autoEntregue(${item._rowId}, this.value)">
       </td>
       <td>
         <input type="text" class="contato-edit-input" value="${escapeHtml(item.contato)}"
@@ -962,7 +1015,14 @@ async function updatePedidoAPI(rowId, updatePayload) {
       if (updatePayload.obs !== undefined) item.obs = updatePayload.obs;
       if (updatePayload.obs_rastreio !== undefined) item.obs_rastreio = updatePayload.obs_rastreio;
       if (updatePayload.contato !== undefined) item.contato = updatePayload.contato;
-      if (updatePayload.entrega !== undefined) item.entrega = isoToBr(updatePayload.entrega);
+
+      // CORREÇÃO: Se a data recebida for null, deixa o campo da UI em branco
+      if (updatePayload.entrega !== undefined) {
+        item.entrega = (updatePayload.entrega && typeof updatePayload.entrega === 'string')
+          ? isoToBr(updatePayload.entrega)
+          : '';
+      }
+
       if (updatePayload.valor_frete !== undefined) {
         item.valorC = parseFloat(updatePayload.valor_frete) || 0;
         item.pct = calcPct(item.valorNF, item.valorC);
@@ -972,11 +1032,61 @@ async function updatePedidoAPI(rowId, updatePayload) {
       showToast('Alteração salva no banco de dados.');
     } else {
       const data = await res.json();
-      showToast(data.detail || 'Erro ao atualizar.');
+
+      // CORREÇÃO: Tratamento inteligente para evitar o [object Object] na notificação
+      let errMsg = 'Erro ao atualizar.';
+      if (data.detail) {
+        if (typeof data.detail === 'string') {
+          errMsg = data.detail;
+        } else if (Array.isArray(data.detail)) {
+          // Se for erro do FastAPI/Pydantic, pega a mensagem legível
+          errMsg = data.detail.map(e => e.msg || 'Erro de validação').join(', ');
+        } else {
+          errMsg = JSON.stringify(data.detail);
+        }
+      }
+      showToast(errMsg);
     }
   } catch (err) {
     showToast('Falha na comunicação com o servidor.');
   }
+}
+
+function autoEntregue(rowId, dateValue) {
+  const item = findByRowId(rowId);
+  if (!item) return;
+
+  // 🚨 O SEGREDO AQUI: Envia a 'data zero' que o backend entende em vez de null
+  const payload = { entrega: dateValue ? dateValue : '0001-01-01' };
+
+  const setStatusSelect = (status, badgeClass) => {
+    document.querySelectorAll('select.status-edit').forEach(sel => {
+      if (sel.getAttribute('onchange')?.includes(`updatePedidoAPI(${rowId},`)) {
+        sel.value = status;
+        sel.className = `status-edit ${badgeClass}`;
+      }
+    });
+  };
+
+  const currentStatus = item.status.toUpperCase();
+  if (dateValue) {
+    // Não altera automaticamente se estiver cancelado ou já entregue
+    if (currentStatus !== 'ENTREGUE' && currentStatus !== 'CANCELADO') {
+      payload.status = 'ENTREGUE';
+      setStatusSelect('ENTREGUE', 'bE');
+    }
+  } else {
+    // Data apagada -> Volta para EM TRÂNSITO (só se estava ENTREGUE)
+    if (currentStatus === 'ENTREGUE') {
+      payload.status = 'EM TRÂNSITO';
+      setStatusSelect('EM TRÂNSITO', 'bT');
+    }
+  }
+
+  // Atualiza o estado local IMEDIATAMENTE (isoToBr já sabe que 0001 vira vazio)
+  item.entrega = dateValue ? isoToBr(dateValue) : '';
+
+  updatePedidoAPI(rowId, payload);
 }
 
 function clearObs(rowId) {

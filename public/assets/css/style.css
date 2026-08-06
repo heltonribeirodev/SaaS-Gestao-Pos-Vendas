@@ -646,7 +646,7 @@ body {
 /* ── PAINEL DE SUPORTE AO OPERADOR ──────────── */
 .alert-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -758,6 +758,17 @@ body {
 .ac-fob .alert-label,
 .ac-fob .alert-arrow { /* Erro de sintaxe corrigido aqui! */
   color: #6B21A8;
+}
+
+.ac-cancelado {
+  background-color: #F9FAFB;
+  border-color: #9CA3AF;
+}
+.ac-cancelado .alert-ic,
+.ac-cancelado .alert-val,
+.ac-cancelado .alert-label,
+.ac-cancelado .alert-arrow {
+  color: #4B5563;
 }
 
 @keyframes alert-pulse {
@@ -924,8 +935,8 @@ body {
 }
 
 .badge.bC {
-  background: var(--red-pale);
-  color: #991B1B;
+  background: #F3F4F6;
+  color: #4B5563;
 }
 
 .badge.bF {
@@ -953,7 +964,7 @@ body {
 }
 
 .badge.bC .bd {
-  background: var(--red);
+  background: #9CA3AF;
 }
 
 .badge.bF .bd {
@@ -1025,6 +1036,11 @@ select.status-edit.bF {
 select.status-edit.bFob {
   background: #F3E8FF;
   color: #6B21A8;
+}
+
+select.status-edit.bC {
+  background: #F3F4F6;
+  color: #4B5563;
 }
 
 select.status-edit:hover {

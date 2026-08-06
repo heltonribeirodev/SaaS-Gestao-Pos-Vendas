@@ -103,7 +103,7 @@
         <div class="page-header">
           <div>
             <div class="page-title">Visão Geral</div>
-            <div class="page-sub">Monitoramento referente ao mês atual</div>
+            <div class="page-sub">Alertas operacionais: todos os períodos · KPIs de emissão: mês atual</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
             <span class="chip-date" id="chip-date">Todos os períodos</span>
@@ -158,6 +158,16 @@
             <div class="alert-txt">
               <div class="alert-val" id="qtd-fob">-</div>
               <div class="alert-label">FOB — Retirada pelo Cliente</div>
+            </div>
+            <div class="alert-arrow">Ver pedidos →</div>
+          </div>
+
+          <!-- Card Cancelados -->
+          <div class="alert-card ac-cancelado" onclick="goToUrgent('cancelado')">
+            <div class="alert-ic"><i class="fa-solid fa-ban"></i></div>
+            <div class="alert-txt">
+              <div class="alert-val" id="qtd-cancelados">-</div>
+              <div class="alert-label">Cancelados</div>
             </div>
             <div class="alert-arrow">Ver pedidos →</div>
           </div>
