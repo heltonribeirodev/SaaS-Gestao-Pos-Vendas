@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import Optional
 import re
+import json
 
 from backend.database import get_conn, release_conn, get_cursor
 from backend.models import PedidoCreate, PedidoUpdate, ImportarPayload
@@ -9,6 +10,7 @@ from backend.permissoes import (
     check, PODE_VER_TODOS, PODE_CRIAR_PEDIDO,
     PODE_EDITAR_PEDIDO, PODE_EXCLUIR_PEDIDO
 )
+from backend.audit import registrar_log
 
 router = APIRouter(prefix="/api/pedidos", tags=["pedidos"])
 
@@ -120,6 +122,9 @@ async def criar(body: PedidoCreate, usuario: dict = Depends(get_usuario_atual)):
             ))
             row = cur.fetchone()
             conn.commit()
+        registrar_log(usuario["id"], usuario["nome"], "PEDIDO_CRIADO",
+                      entidade="pedidos", entidade_id=row["id"],
+                      detalhe=json.dumps({"nf": body.nf, "destinatario": body.destinatario}, ensure_ascii=False))
         return dict(row)
     except Exception as e:
         conn.rollback()
@@ -165,6 +170,9 @@ async def importar(payload: ImportarPayload, usuario: dict = Depends(get_usuario
                 ))
                 inseridos += 1
         conn.commit()
+        registrar_log(usuario["id"], usuario["nome"], "PEDIDO_IMPORTADO",
+                      entidade="pedidos",
+                      detalhe=json.dumps({"inseridos": inseridos, "total_enviados": len(payload.pedidos)}, ensure_ascii=False))
         return {"ok": True, "inseridos": inseridos}
     except Exception as e:
         conn.rollback()
@@ -183,6 +191,10 @@ async def atualizar(pedido_id: int, body: PedidoUpdate, usuario: dict = Depends(
     conn = get_conn()
     try:
         with get_cursor(conn) as cur:
+            # Captura estado anterior para diff
+            cur.execute("SELECT * FROM pedidos WHERE id = %s", (pedido_id,))
+            antes = dict(cur.fetchone() or {})
+
             cur.execute("""
                 UPDATE pedidos SET
                     status         = COALESCE(%s, status),
@@ -205,9 +217,9 @@ async def atualizar(pedido_id: int, body: PedidoUpdate, usuario: dict = Depends(
                 body.obs_rastreio,
                 body.contato,
                 str(body.previsao) if body.previsao else None,
-                body.vendedor, 
+                body.vendedor,
                 body.transportadora,
-                body.valor_nf, 
+                body.valor_nf,
                 body.valor_frete,
                 pedido_id
             ))
@@ -216,6 +228,25 @@ async def atualizar(pedido_id: int, body: PedidoUpdate, usuario: dict = Depends(
 
         if not row:
             raise HTTPException(status_code=404, detail="Pedido não encontrado.")
+
+        # Monta diff dos campos alterados
+        campo_map = {
+            "status": body.status, "entrega": str(body.entrega) if body.entrega else None,
+            "obs": body.obs, "obs_rastreio": body.obs_rastreio, "contato": body.contato,
+            "previsao": str(body.previsao) if body.previsao else None,
+            "vendedor": body.vendedor, "transportadora": body.transportadora,
+            "valor_nf": body.valor_nf, "valor_frete": body.valor_frete,
+        }
+        alteracoes = {}
+        for campo, novo in campo_map.items():
+            if novo is not None:
+                anterior = str(antes.get(campo, "")) if antes.get(campo) is not None else ""
+                if str(novo) != anterior:
+                    alteracoes[campo] = {"de": anterior, "para": str(novo)}
+        detalhe = json.dumps({"nf": antes.get("nf", "?"), "campos": alteracoes}, ensure_ascii=False)
+        registrar_log(usuario["id"], usuario["nome"], "PEDIDO_EDITADO",
+                      entidade="pedidos", entidade_id=pedido_id, detalhe=detalhe)
+
         return dict(row)
 
     except HTTPException:
@@ -236,11 +267,17 @@ async def deletar(pedido_id: int, usuario: dict = Depends(get_usuario_atual)):
     conn = get_conn()
     try:
         with get_cursor(conn) as cur:
+            # Captura NF antes de deletar
+            cur.execute("SELECT nf, destinatario FROM pedidos WHERE id = %s", (pedido_id,))
+            info = dict(cur.fetchone() or {})
             cur.execute("DELETE FROM pedidos WHERE id = %s RETURNING id", (pedido_id,))
             row = cur.fetchone()
             conn.commit()
         if not row:
             raise HTTPException(status_code=404, detail="Pedido não encontrado.")
+        registrar_log(usuario["id"], usuario["nome"], "PEDIDO_EXCLUIDO",
+                      entidade="pedidos", entidade_id=pedido_id,
+                      detalhe=json.dumps({"nf": info.get("nf","?"), "destinatario": info.get("destinatario","?")}, ensure_ascii=False))
         return {"ok": True}
     except HTTPException:
         raise

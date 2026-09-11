@@ -9,7 +9,7 @@ let currentSort = { col: 'id', asc: true };
 let urgencyFilter = null;
 let currentUser = null;
 
-const STATUS_OPTIONS = ['EM TRÂNSITO', 'EM ROTA DE ENTREGA', 'ENTREGUE', 'RETIDO FISCALIZAÇÃO', 'FOB', 'CANCELADO'];
+const STATUS_OPTIONS = ['EM TRÂNSITO', 'EM ROTA DE ENTREGA', 'ENTREGUE', 'RETIDO FISCALIZAÇÃO', 'FOB', 'CANCELADO', 'DEVOLUÇÃO'];
 
 // Variáveis Globais dos Gráficos e Mapa
 let chartStatusInstance = null;
@@ -133,6 +133,7 @@ function getBadgeClass(status) {
     case 'RETIDO FISCALIZAÇÃO': return 'bF';
     case 'FOB': return 'bFob';
     case 'CANCELADO': return 'bC';
+    case 'DEVOLUÇÃO': return 'bDev';
     default: return 'bT';
   }
 }
@@ -339,7 +340,7 @@ function showTab(tabId, element) {
   document.querySelectorAll('.sb-nav li').forEach(li => li.classList.remove('active'));
   if (element) element.classList.add('active');
 
-  const titles = { dashboard: 'Dashboard', pedidos: 'Pedidos', transportadoras: 'Transportadoras', vendedores: 'Vendedores', administracao: 'Administração' };
+  const titles = { dashboard: 'Dashboard', pedidos: 'Pedidos', transportadoras: 'Transportadoras', vendedores: 'Vendedores', administracao: 'Administração', logs: 'Auditoria' };
   document.getElementById('top-title').innerText = titles[tabId] || 'ForteCare';
 
   if (tabId === 'transportadoras') renderTransportadoras();
@@ -348,6 +349,7 @@ function showTab(tabId, element) {
     loadAndRenderUsersPanel();
     carregarDePara();
   }
+  if (tabId === 'logs') loadLogs(true);
 }
 
 // ═══════════════════════════════════════════════
@@ -382,6 +384,8 @@ function applyFilters(keepPage = false) {
         if (item.status.toUpperCase() !== 'FOB') return false;
       } else if (urgencyFilter === 'cancelado') {
         if (item.status.toUpperCase() !== 'CANCELADO') return false;
+      } else if (urgencyFilter === 'devolucao') {
+        if (item.status.toUpperCase() !== 'DEVOLUÇÃO') return false;
       } else {
         const prev = parseBrDate(item.previsao);
         if (!prev) return false;
@@ -419,6 +423,7 @@ function goToUrgent(type) {
     if (type === 'retido') txt = 'Retido fiscalização';
     if (type === 'fob') txt = 'FOB';
     if (type === 'cancelado') txt = 'Cancelados';
+    if (type === 'devolucao') txt = 'Devoluções';
     tag.querySelector('.ptag-txt').innerText = txt;
   }
   applyFilters();
@@ -512,6 +517,7 @@ function renderDashboard() {
   const retido = allData.filter(p => p.status.toUpperCase() === 'RETIDO FISCALIZAÇÃO').length;
   const fob = allData.filter(p => p.status.toUpperCase() === 'FOB').length;
   const cancelados = allData.filter(p => p.status.toUpperCase() === 'CANCELADO').length;
+  const devolucoes = allData.filter(p => p.status.toUpperCase() === 'DEVOLUÇÃO').length;
 
   const elRota = document.getElementById('qtd-rota');
   if (elRota) elRota.innerText = emRota;
@@ -521,6 +527,8 @@ function renderDashboard() {
   if (elFob) elFob.innerText = fob;
   const elCancelados = document.getElementById('qtd-cancelados');
   if (elCancelados) elCancelados.innerText = cancelados;
+  const elDevolucoes = document.getElementById('qtd-devolucoes');
+  if (elDevolucoes) elDevolucoes.innerText = devolucoes;
 
   document.getElementById('kpi-total').innerText = total;
   document.getElementById('kpi-ent').innerText = entregues;
@@ -546,7 +554,7 @@ function renderDashboard() {
   // Ignora CANCELADO e FOB pois não estão mais em trânsito ativo
   allData.forEach(item => {
     const s = (item.status || '').toUpperCase();
-    if (s === 'CANCELADO' || s === 'FOB') return;
+    if (s === 'CANCELADO' || s === 'FOB' || s === 'DEVOLUÇÃO') return;
     const prev = parseBrDate(item.previsao);
     const temEntrega = item.entrega && item.entrega.trim() !== '' && item.entrega !== 'dd/mm/aaaa';
     if (temEntrega || !prev) return; // só conta pendentes sem entrega confirmada
@@ -595,10 +603,15 @@ function renderDashboard() {
     else slaCard.classList.add('sla-good');
   }
 
-  const totalValorNFmes = data.reduce((acc, i) => acc + (i.valorNF || 0), 0);
-  const totalFretemes = data.reduce((acc, i) => acc + (i.valorC || 0), 0);
+  const monthKey = getCurrentMonthKey();
+  const dataEntreguesMes = dataSET.filter(i =>
+    String(i.status).toUpperCase() === 'ENTREGUE' &&
+    brToIso(i.entrega || '').slice(0, 7) === monthKey
+  );
+  const totalValorNFmes = dataEntreguesMes.reduce((acc, i) => acc + (i.valorNF || 0), 0);
+  const totalFretemes = dataEntreguesMes.reduce((acc, i) => acc + (i.valorC || 0), 0);
   const freteMedio = totalValorNFmes > 0 ? (totalFretemes / totalValorNFmes) * 100 : null;
-  document.getElementById('kpi-frete').innerText = freteMedio === null ? '–' : freteMedio.toFixed(1) + '%';
+  document.getElementById('kpi-frete').innerText = freteMedio === null ? '–' : freteMedio.toFixed(2) + '%';
 
   const rBody = document.getElementById('r-body');
   if (data.length === 0) {
@@ -628,7 +641,7 @@ function renderChartsEngine(data) {
   if (chartTranspInstance) chartTranspInstance.destroy();
 
   // Gráfico Doughnut (Status)
-  const statusCounts = { 'ENTREGUE': 0, 'EM TRÂNSITO': 0, 'EM ROTA DE ENTREGA': 0, 'RETIDO FISCALIZAÇÃO': 0, 'FOB': 0, 'CANCELADO': 0 };
+  const statusCounts = { 'ENTREGUE': 0, 'EM TRÂNSITO': 0, 'EM ROTA DE ENTREGA': 0, 'RETIDO FISCALIZAÇÃO': 0, 'FOB': 0, 'CANCELADO': 0, 'DEVOLUÇÃO': 0 };
   data.forEach(i => {
     let s = i.status.toUpperCase();
     if (statusCounts[s] !== undefined) statusCounts[s]++;
@@ -642,7 +655,8 @@ function renderChartsEngine(data) {
     'EM ROTA DE ENTREGA': colors.orange,
     'RETIDO FISCALIZAÇÃO': colors.red,
     'FOB': '#A855F7',
-    'CANCELADO': '#9CA3AF'
+    'CANCELADO': '#9CA3AF',
+    'DEVOLUÇÃO': '#BE123C'
   };
   const ctxStatus = document.getElementById('c-status');
   if (ctxStatus) {
@@ -944,10 +958,13 @@ function renderPedidos() {
   const idxStart = (currentPage - 1) * rowsPerPage;
   const paginatedItems = filteredData.slice(idxStart, idxStart + rowsPerPage);
 
+  const isSolange = (v) => v.toUpperCase().trim() === 'SOLANGE DOMINGUES';
+  const PODE_EDITAR = currentUser && ['Administrador', 'Gerente de Logística', 'Operador'].includes(currentUser.tipo);
+
   pBody.innerHTML = paginatedItems.map(item => `
-    <tr>
+    <tr class="${isSolange(item.vendedor) ? 'row-licitacao' : ''}">
       <td class="td-mono">${item.id}</td>
-      <td style="font-weight:500">${item.vendedor}</td>
+      <td class="${isSolange(item.vendedor) ? 'td-licitacao-vend' : ''}" style="font-weight:500">${item.vendedor}</td>
       <td class="td-dest" title="${item.destinatario}">${item.destinatario}</td>
       <td><span style="font-weight:700; color:var(--navy)">${item.uf}</span></td>
       <td class="td-ct" title="${item.municipio}">${item.municipio}</td>
@@ -956,41 +973,53 @@ function renderPedidos() {
       <td class="td-money">${formatMoney(item.valorNF)}</td>
       <td>${item.previsao}</td>
       <td>
-        <input type="date" class="entrega-edit-input" value="${brToIso(item.entrega)}"
-               onchange="autoEntregue(${item._rowId}, this.value)">
+        ${PODE_EDITAR
+          ? `<input type="date" class="entrega-edit-input" value="${brToIso(item.entrega)}"
+                    onchange="autoEntregue(${item._rowId}, this.value)">`
+          : `<span class="td-readonly">${item.entrega || '—'}</span>`}
       </td>
       <td>
-        <input type="text" class="contato-edit-input" value="${escapeHtml(item.contato)}"
-               placeholder="Sem contato" onchange="updatePedidoAPI(${item._rowId}, { contato: this.value })">
+        ${PODE_EDITAR
+          ? `<input type="text" class="contato-edit-input" value="${escapeHtml(item.contato)}"
+                    placeholder="Sem contato" onchange="updatePedidoAPI(${item._rowId}, { contato: this.value })">`
+          : `<span class="td-readonly">${escapeHtml(item.contato) || '—'}</span>`}
       </td>
       <td>
-        <div class="frete-edit-wrap">
-          <input type="number" step="0.01" min="0" class="frete-edit-input"
-                 value="${item.valorC ?? 0}"
-                 onchange="updatePedidoAPI(${item._rowId}, { valor_frete: this.value })">
-          <span class="frete-pct" title="% de frete calculado">${calcPct(item.valorNF, item.valorC).toFixed(1)}%</span>
-        </div>
+        ${PODE_EDITAR
+          ? `<div class="frete-edit-wrap">
+               <input type="number" step="0.01" min="0" class="frete-edit-input"
+                      value="${item.valorC ?? 0}"
+                      onchange="updatePedidoAPI(${item._rowId}, { valor_frete: this.value })">
+               <span class="frete-pct" title="% de frete calculado">${calcPct(item.valorNF, item.valorC).toFixed(1)}%</span>
+             </div>`
+          : `<span class="td-readonly">${formatMoney(item.valorC ?? 0)} <span class="frete-pct">${calcPct(item.valorNF, item.valorC).toFixed(1)}%</span></span>`}
       </td>
       <td>
-        <select class="status-edit ${getBadgeClass(item.status)}" onchange="updatePedidoAPI(${item._rowId}, { status: this.value })">
-          ${STATUS_OPTIONS.map(s => `<option value="${s}" ${item.status.toUpperCase() === s ? 'selected' : ''}>${s}</option>`).join('')}
-        </select>
+        ${PODE_EDITAR
+          ? `<select class="status-edit ${getBadgeClass(item.status)}" onchange="updatePedidoAPI(${item._rowId}, { status: this.value })">
+               ${STATUS_OPTIONS.map(s => `<option value="${s}" ${item.status.toUpperCase() === s ? 'selected' : ''}>${s}</option>`).join('')}
+             </select>`
+          : `<span class="badge ${getBadgeClass(item.status)}">${item.status}</span>`}
       </td>
       <td>
-        <div class="obs-edit-wrap">
-          <input type="text" class="obs-edit-input" id="obs-${item._rowId}"
-                 value="${escapeHtml(item.obs)}" placeholder="Sem observação"
-                 onchange="updatePedidoAPI(${item._rowId}, { obs: this.value })">
-          ${item.obs ? `<span class="obs-edit-clear" title="Remover observação" onclick="clearObs(${item._rowId})">✕</span>` : ''}
-        </div>
+        ${PODE_EDITAR
+          ? `<div class="obs-edit-wrap">
+               <input type="text" class="obs-edit-input" id="obs-${item._rowId}"
+                      value="${escapeHtml(item.obs)}" placeholder="Sem observação"
+                      onchange="updatePedidoAPI(${item._rowId}, { obs: this.value })">
+               ${item.obs ? `<span class="obs-edit-clear" title="Remover observação" onclick="clearObs(${item._rowId})">✕</span>` : ''}
+             </div>`
+          : `<span class="td-readonly">${escapeHtml(item.obs) || '—'}</span>`}
       </td>
       <td>
-        <div class="obs-edit-wrap">
-          <input type="text" class="obs-edit-input" id="obs-rastreio-${item._rowId}"
-                 value="${escapeHtml(item.obs_rastreio)}" placeholder="Sem obs rastreio"
-                 onchange="updatePedidoAPI(${item._rowId}, { obs_rastreio: this.value })">
-          ${item.obs_rastreio ? `<span class="obs-edit-clear" title="Remover rastreio" onclick="clearObsRastreio(${item._rowId})">✕</span>` : ''}
-        </div>
+        ${PODE_EDITAR
+          ? `<div class="obs-edit-wrap">
+               <input type="text" class="obs-edit-input" id="obs-rastreio-${item._rowId}"
+                      value="${escapeHtml(item.obs_rastreio)}" placeholder="Sem obs rastreio"
+                      onchange="updatePedidoAPI(${item._rowId}, { obs_rastreio: this.value })">
+               ${item.obs_rastreio ? `<span class="obs-edit-clear" title="Remover rastreio" onclick="clearObsRastreio(${item._rowId})">✕</span>` : ''}
+             </div>`
+          : `<span class="td-readonly">${escapeHtml(item.obs_rastreio) || '—'}</span>`}
       </td>
     </tr>
   `).join('');
@@ -1070,8 +1099,8 @@ function autoEntregue(rowId, dateValue) {
 
   const currentStatus = item.status.toUpperCase();
   if (dateValue) {
-    // Não altera automaticamente se estiver cancelado ou já entregue
-    if (currentStatus !== 'ENTREGUE' && currentStatus !== 'CANCELADO') {
+    // Não altera automaticamente se estiver cancelado, devolvido ou já entregue
+    if (currentStatus !== 'ENTREGUE' && currentStatus !== 'CANCELADO' && currentStatus !== 'DEVOLUÇÃO') {
       payload.status = 'ENTREGUE';
       setStatusSelect('ENTREGUE', 'bE');
     }
@@ -1329,6 +1358,246 @@ function exportCSV() {
   showToast(`${filteredData.length} registro(s) exportado(s).`);
 }
 
+// ═══════════════════════════════════════════════════════════
+// LOGS DE AUDITORIA
+// ═══════════════════════════════════════════════════════════
+let logsOffset = 0;
+const LOGS_LIMIT = 80;
+let logsTotal = 0;
+let _logDebounce = null;
+
+function debounceLoadLogs() {
+  clearTimeout(_logDebounce);
+  _logDebounce = setTimeout(() => loadLogs(true), 400);
+}
+
+function clearLogsFilters() {
+  document.getElementById('log-f-acao').value = '';
+  document.getElementById('log-f-busca').value = '';
+  document.getElementById('log-f-de').value = '';
+  document.getElementById('log-f-ate').value = '';
+  loadLogs(true);
+}
+
+async function loadLogs(reset = false) {
+  if (reset) logsOffset = 0;
+  const acao  = document.getElementById('log-f-acao')?.value || '';
+  const busca = document.getElementById('log-f-busca')?.value || '';
+  const de    = document.getElementById('log-f-de')?.value || '';
+  const ate   = document.getElementById('log-f-ate')?.value || '';
+
+  const params = new URLSearchParams({ limit: LOGS_LIMIT, offset: logsOffset });
+  if (acao)  params.set('acao', acao);
+  if (busca) params.set('busca', busca);
+  if (de)    params.set('de', de);
+  if (ate)   params.set('ate', ate);
+
+  const body = document.getElementById('logs-body');
+  if (!body) return;
+  body.innerHTML = `<tr><td colspan="7" class="td-empty"><i class="fa-solid fa-spinner fa-spin" style="margin-right:6px"></i>Carregando...</td></tr>`;
+
+  try {
+    const res = await apiFetch(`/api/logs?${params}`);
+    if (!res.ok) throw new Error('Erro na requisição');
+    const data = await res.json();
+    
+    logsTotal = data.total || 0;
+    renderLogsTable(data.logs || []);
+    renderLogsPagination();
+
+    const summary = document.getElementById('logs-summary');
+    const txt = document.getElementById('logs-total-txt');
+    if (summary && txt) {
+      summary.style.display = logsTotal > 0 ? '' : 'none';
+      txt.textContent = `${logsTotal.toLocaleString('pt-BR')} registro${logsTotal !== 1 ? 's' : ''} encontrado${logsTotal !== 1 ? 's' : ''}`;
+    }
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="7" class="td-empty" style="color:var(--danger)">Erro ao carregar logs.</td></tr>`;
+  }
+}
+
+function renderLogsTable(logs) {
+  const body = document.getElementById('logs-body');
+  if (!body) return;
+  if (!logs.length) {
+    body.innerHTML = `<tr><td colspan="7" class="td-empty">Nenhum log encontrado.</td></tr>`;
+    return;
+  }
+  body.innerHTML = logs.map(log => {
+    const dt = log.criado_em ? new Date(log.criado_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' }) : '—';
+    const badgeClass = getLogBadgeClass(log.acao);
+    const badgeLabel = getLogLabel(log.acao);
+    const detalhe = formatLogDetalhe(log.detalhe);
+    return `<tr>
+      <td class="td-mono" style="font-size:12px; white-space:nowrap">${dt}</td>
+      <td style="font-weight:500">${escapeHtml(log.usuario_nome || '—')}</td>
+      <td><span class="log-badge ${badgeClass}">${badgeLabel}</span></td>
+      <td style="color:var(--muted); font-size:12px">${log.entidade || '—'}</td>
+      <td style="text-align:center; color:var(--muted); font-size:12px">${log.entidade_id || '—'}</td>
+      <td class="log-detalhe-cell" title="${escapeHtml(log.detalhe || '')}">${detalhe}</td>
+      <td class="td-mono" style="font-size:11px; color:var(--muted)">${log.ip || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function getLogBadgeClass(acao) {
+  const map = {
+    LOGIN_OK:         'log-b-ok',
+    LOGIN_FALHA:      'log-b-danger',
+    LOGOUT:           'log-b-muted',
+    SENHA_ALTERADA:   'log-b-warn',
+    SENHA_REDEFINIDA: 'log-b-warn',
+    PEDIDO_CRIADO:    'log-b-teal',
+    PEDIDO_EDITADO:   'log-b-blue',
+    PEDIDO_EXCLUIDO:  'log-b-danger',
+    PEDIDO_IMPORTADO: 'log-b-teal',
+    USUARIO_CRIADO:   'log-b-teal',
+    USUARIO_EDITADO:  'log-b-blue',
+    USUARIO_EXCLUIDO: 'log-b-danger',
+  };
+  return map[acao] || 'log-b-muted';
+}
+
+function getLogLabel(acao) {
+  const map = {
+    LOGIN_OK:         '✓ Login',
+    LOGIN_FALHA:      '✕ Login falhou',
+    LOGOUT:           'Logout',
+    SENHA_ALTERADA:   'Senha alterada',
+    SENHA_REDEFINIDA: 'Senha redefinida',
+    PEDIDO_CRIADO:    'Pedido criado',
+    PEDIDO_EDITADO:   'Pedido editado',
+    PEDIDO_EXCLUIDO:  'Pedido excluído',
+    PEDIDO_IMPORTADO: 'Importação',
+    USUARIO_CRIADO:   'Usuário criado',
+    USUARIO_EDITADO:  'Usuário editado',
+    USUARIO_EXCLUIDO: 'Usuário excluído',
+  };
+  return map[acao] || acao;
+}
+
+function formatLogDetalhe(raw) {
+  if (!raw) return '—';
+  try {
+    const obj = JSON.parse(raw);
+    // PEDIDO_EDITADO: {"nf":"123", "campos": {"status":{"de":"X","para":"Y"}}}
+    if (obj.campos && typeof obj.campos === 'object') {
+      const partes = Object.entries(obj.campos).map(([campo, diff]) =>
+        `<span class="log-diff-campo">${campo}</span>: <span class="log-diff-de">${escapeHtml(String(diff.de || ''))}</span> → <span class="log-diff-para">${escapeHtml(String(diff.para || ''))}</span>`
+      );
+      const nfPart = obj.nf ? `<b>NF ${obj.nf}</b> · ` : '';
+      return nfPart + (partes.length ? partes.join(' | ') : '(sem alterações)');
+    }
+    // PEDIDO_CRIADO / EXCLUIDO
+    if (obj.nf) {
+      return `NF <b>${escapeHtml(obj.nf)}</b>${obj.destinatario ? ' · ' + escapeHtml(obj.destinatario) : ''}`;
+    }
+    // PEDIDO_IMPORTADO
+    if (obj.inseridos !== undefined) {
+      return `${obj.inseridos} de ${obj.total_enviados} linhas importadas`;
+    }
+    // USUARIO_CRIADO / EDITADO / EXCLUIDO
+    if (obj.nome || obj.email) {
+      const campos = obj.campos ? ' · Campos: ' + Object.keys(obj.campos).join(', ') : '';
+      const alvo = obj.alvo || obj.nome || '';
+      return `${escapeHtml(alvo)}${obj.email ? ' (' + escapeHtml(obj.email) + ')' : ''}${obj.tipo ? ' · ' + escapeHtml(obj.tipo) : ''}${campos}`;
+    }
+    // Fallback: texto da chave mais relevante
+    return escapeHtml(JSON.stringify(obj).substring(0, 120));
+  } catch {
+    return escapeHtml(String(raw).substring(0, 120));
+  }
+}
+
+function renderLogsPagination() {
+  const wrap = document.getElementById('logs-pagination');
+  if (!wrap) return;
+  const totalPages = Math.ceil(logsTotal / LOGS_LIMIT);
+  const currentPage = Math.floor(logsOffset / LOGS_LIMIT) + 1;
+  if (totalPages <= 1) { wrap.innerHTML = ''; return; }
+
+  let html = `<div class="pag-info">${logsTotal.toLocaleString('pt-BR')} registros · Página ${currentPage} de ${totalPages}</div><div class="pag-btns">`;
+  html += `<button class="pag-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="changeLogsPage(${currentPage - 1})">‹ Anterior</button>`;
+
+  const delta = 2;
+  for (let p = 1; p <= totalPages; p++) {
+    if (p === 1 || p === totalPages || (p >= currentPage - delta && p <= currentPage + delta)) {
+      html += `<button class="pag-btn ${p === currentPage ? 'active' : ''}" onclick="changeLogsPage(${p})">${p}</button>`;
+    } else if (p === currentPage - delta - 1 || p === currentPage + delta + 1) {
+      html += `<span class="pag-ellipsis">…</span>`;
+    }
+  }
+  html += `<button class="pag-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="changeLogsPage(${currentPage + 1})">Próximo ›</button>`;
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+
+function changeLogsPage(p) {
+  logsOffset = (p - 1) * LOGS_LIMIT;
+  loadLogs(false);
+  document.getElementById('tab-logs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function exportLogsCSV() {
+  try {
+    const acaoEl  = document.getElementById('log-f-acao');
+    const buscaEl = document.getElementById('log-f-busca');
+    const deEl    = document.getElementById('log-f-de');
+    const ateEl   = document.getElementById('log-f-ate');
+
+    let acao  = acaoEl?.value?.trim() || '';
+    let busca = buscaEl?.value?.trim() || '';
+    let de    = deEl?.value?.trim() || '';
+    let ate   = ateEl?.value?.trim() || '';
+
+    // Limpa filtro padrao de "Todas as acoes"
+    if (acao.toLowerCase().includes('toda')) acao = '';
+
+    const params = new URLSearchParams({ limit: '5000', offset: '0' });
+    if (acao)  params.set('acao', acao);
+    if (busca) params.set('busca', busca);
+    if (de)    params.set('de', de);
+    if (ate)   params.set('ate', ate);
+
+    // 1. Faz a chamada HTTP
+    const res = await apiFetch(`/api/logs?${params.toString()}`);
+
+    // 2. CONVERTE A RESPOSTA EM JSON (Ponto cego corrigido)
+    const data = await res.json();
+
+    const rows = data?.logs || (Array.isArray(data) ? data : []);
+
+    if (!rows || rows.length === 0) {
+      showToast('Nenhum log para exportar.');
+      return;
+    }
+
+    // 3. Montagem e download do arquivo CSV
+    const headers = ['Data/Hora', 'Usuário', 'Ação', 'Entidade', 'ID', 'Detalhe', 'IP'];
+    const lines = rows.map(r => [
+      r.criado_em ? new Date(r.criado_em).toLocaleString('pt-BR') : '',
+      r.usuario_nome || '',
+      r.acao || '',
+      r.entidade || '',
+      r.entidade_id || '',
+      (r.detalhe || '').replace(/"/g, '""'),
+      r.ip || ''
+    ].map(v => `"${v}"`).join(';'));
+
+    const csv = '\uFEFF' + [headers.join(';'), ...lines].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `logs_auditoria_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('Erro na exportação:', err);
+    showToast('Erro ao exportar logs.');
+  }
+}
+
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.innerText = msg; t.classList.add('show');
@@ -1369,6 +1638,16 @@ function applyLoggedUser() {
     }
   }
 
+  // ── Aba Logs (apenas Administrador) ─────────────────────────
+  const IS_ADMIN = tipo === 'Administrador';
+  const logsMenuItem = document.getElementById('nav-logs');
+  if (logsMenuItem) {
+    logsMenuItem.style.display = IS_ADMIN ? 'flex' : 'none';
+    if (!IS_ADMIN && document.getElementById('tab-logs')?.classList.contains('active')) {
+      showTab('dashboard', document.querySelector('.sb-nav li:nth-child(1)'));
+    }
+  }
+
   // ── Botões da topbar ─────────────────────────────────────────
   const btnImportar = document.querySelector('[onclick="openModal()"]');
   const btnManual = document.querySelector('[onclick="openManualModal()"]');
@@ -1376,8 +1655,8 @@ function applyLoggedUser() {
 
   if (btnImportar) btnImportar.style.display = PODE_CRUD_PEDIDO ? '' : 'none';
   if (btnManual) btnManual.style.display = PODE_CRUD_PEDIDO ? '' : 'none';
-  // Gerente pode exportar, Vendedor não
-  if (btnExportar) btnExportar.style.display = IS_VENDEDOR ? 'none' : '';
+  // Exportar é visível para todos os perfis
+  if (btnExportar) btnExportar.style.display = '';
 
   // ── Filtro de vendedor (Vendedor só vê os próprios) ──────────
   const fVend = document.getElementById('f-vend');

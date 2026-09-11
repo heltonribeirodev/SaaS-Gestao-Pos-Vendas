@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import Optional
 from passlib.context import CryptContext
+import json
 
 from backend.database import get_conn, release_conn, get_cursor
 from backend.models import UsuarioCreate, UsuarioUpdate
@@ -9,6 +10,7 @@ from backend.permissoes import (
     check, PODE_LISTAR_USUARIOS, PODE_CRIAR_USUARIO, PODE_CRIAR_ADMIN,
     PODE_EDITAR_USUARIO, PODE_EXCLUIR_USUARIO
 )
+from backend.audit import registrar_log
 
 router = APIRouter(prefix="/api/usuarios", tags=["usuarios"])
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -87,6 +89,9 @@ async def criar(body: UsuarioCreate, usuario: dict = Depends(get_usuario_atual))
             """, (body.nome, body.email.lower(), hash_senha, body.setor, body.tipo))
             row = cur.fetchone()
             conn.commit()
+        registrar_log(usuario["id"], usuario["nome"], "USUARIO_CRIADO",
+                      entidade="usuarios", entidade_id=row["id"],
+                      detalhe=json.dumps({"nome": body.nome, "email": body.email.lower(), "tipo": body.tipo}, ensure_ascii=False))
         return dict(row)
     except Exception as e:
         conn.rollback()
@@ -175,6 +180,18 @@ async def atualizar(usuario_id: int, body: UsuarioUpdate, usuario: dict = Depend
 
         if not row:
             raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+        campos = {}
+        if body.nome:   campos["nome"]  = body.nome
+        if body.email:  campos["email"] = body.email.lower()
+        if body.tipo:   campos["tipo"]  = body.tipo
+        if body.setor:  campos["setor"] = body.setor
+        if body.ativo is not None: campos["ativo"] = body.ativo
+        if body.senha:  campos["senha"] = "*** (alterada)"
+        registrar_log(usuario["id"], usuario["nome"], "USUARIO_EDITADO",
+                      entidade="usuarios", entidade_id=usuario_id,
+                      detalhe=json.dumps({"alvo": row["nome"], "campos": campos}, ensure_ascii=False))
+
         return dict(row)
 
     except HTTPException:
@@ -222,9 +239,14 @@ async def deletar(usuario_id: int, usuario: dict = Depends(get_usuario_atual)):
                     raise HTTPException(status_code=400, detail="Não é possível excluir o único Administrador do sistema.")
 
         with get_cursor(conn) as cur:
+            cur.execute("SELECT nome, email, tipo FROM usuarios WHERE id = %s", (usuario_id,))
+            info = dict(cur.fetchone() or {})
             cur.execute("DELETE FROM usuarios WHERE id = %s", (usuario_id,))
             conn.commit()
 
+        registrar_log(usuario["id"], usuario["nome"], "USUARIO_EXCLUIDO",
+                      entidade="usuarios", entidade_id=usuario_id,
+                      detalhe=json.dumps({"nome": info.get("nome","?"), "email": info.get("email","?"), "tipo": info.get("tipo","?")}, ensure_ascii=False))
         return {"ok": True}
 
     except HTTPException:

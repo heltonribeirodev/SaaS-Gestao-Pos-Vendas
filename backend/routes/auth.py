@@ -12,6 +12,7 @@ from email.mime.text import MIMEText
 
 from backend.database import get_conn, release_conn, get_cursor
 from backend.models import LoginInput
+from backend.audit import registrar_log
 
 # Carrega o .env com caminho absoluto — funciona independente do diretório de trabalho
 load_dotenv(Path(__file__).parent.parent / ".env")
@@ -128,7 +129,8 @@ def enviar_email_recuperacao(destino: str, token: str):
 # ROTAS DA API
 # =========================================================
 @router.post("/login")
-async def login(body: LoginInput, response: Response):
+async def login(body: LoginInput, response: Response, request: Request):
+    ip = request.client.host if request.client else None
     conn = get_conn()
     try:
         with get_cursor(conn) as cur:
@@ -139,6 +141,13 @@ async def login(body: LoginInput, response: Response):
             user = cur.fetchone()
 
         if not user or not pwd_ctx.verify(body.senha, user["senha_hash"]):
+            registrar_log(
+                usuario_id=user["id"] if user else None,
+                usuario_nome=user["nome"] if user else body.email.strip().lower(),
+                acao="LOGIN_FALHA",
+                ip=ip,
+                detalhe=f"E-mail tentado: {body.email.strip().lower()}",
+            )
             raise HTTPException(status_code=401, detail="E-mail ou senha incorretos.")
 
         token = criar_token(dict(user))
@@ -149,6 +158,13 @@ async def login(body: LoginInput, response: Response):
             httponly=True,
             samesite="lax",
             max_age=EXPIRES * 3600,
+        )
+
+        registrar_log(
+            usuario_id=user["id"],
+            usuario_nome=user["nome"],
+            acao="LOGIN_OK",
+            ip=ip,
         )
 
         usuario = {
@@ -167,7 +183,17 @@ async def login(body: LoginInput, response: Response):
 
 
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(response: Response, request: Request):
+    ip = request.client.host if request.client else None
+    # Tenta extrair o usuário do token atual para logar
+    try:
+        token = request.cookies.get("fc_token")
+        if token:
+            from backend.routes.auth import verificar_token
+            u = verificar_token(token)
+            registrar_log(u["id"], u["nome"], "LOGOUT", ip=ip)
+    except Exception:
+        pass
     response.delete_cookie("fc_token")
     return {"ok": True}
 
@@ -276,6 +302,10 @@ async def meu_perfil(body: MeuPerfilInput, usuario: dict = Depends(get_usuario_a
                 )
             conn.commit()
 
+        if body.nova_senha:
+            registrar_log(usuario["id"], usuario["nome"], "SENHA_ALTERADA",
+                          detalhe="Senha alterada pelo próprio usuário via perfil.")
+
         return {"ok": True, "detail": "Perfil atualizado com sucesso."}
 
     except Exception as e:
@@ -324,6 +354,19 @@ async def redefinir_senha(body: RedefinirSenhaInput):
             """, (body.token,))
 
             conn.commit()
+
+        # Busca nome do usuário para o log
+        try:
+            conn2 = get_conn()
+            with get_cursor(conn2) as cur2:
+                cur2.execute("SELECT id, nome FROM usuarios WHERE id = %s", (reset_req["usuario_id"],))
+                u = cur2.fetchone()
+            release_conn(conn2)
+            if u:
+                registrar_log(u["id"], u["nome"], "SENHA_REDEFINIDA",
+                              detalhe="Senha redefinida via link de recuperação por e-mail.")
+        except Exception:
+            pass
 
         return {"ok": True, "detail": "Senha atualizada com sucesso!"}
 

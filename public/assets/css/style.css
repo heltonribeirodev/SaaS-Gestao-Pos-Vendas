@@ -646,7 +646,7 @@ body {
 /* ── PAINEL DE SUPORTE AO OPERADOR ──────────── */
 .alert-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -769,6 +769,17 @@ body {
 .ac-cancelado .alert-label,
 .ac-cancelado .alert-arrow {
   color: #4B5563;
+}
+
+.ac-devolucao {
+  background-color: #FFF1F2;
+  border-color: #FB7185;
+}
+.ac-devolucao .alert-ic,
+.ac-devolucao .alert-val,
+.ac-devolucao .alert-label,
+.ac-devolucao .alert-arrow {
+  color: #BE123C;
 }
 
 @keyframes alert-pulse {
@@ -949,6 +960,11 @@ body {
   color: #6B21A8;
 }
 
+.badge.bDev {
+  background: #FFF1F2;
+  color: #BE123C;
+}
+
 .badge.bE .bd {
   background: var(--teal);
 }
@@ -973,6 +989,11 @@ body {
 
 .badge.bFob .bd {
   background: #A855F7;
+}
+
+.badge.bDev .bd {
+  background: #BE123C;
+  animation: pulse-dot 1.8s infinite;
 }
 
 @keyframes pulse-dot {
@@ -1041,6 +1062,11 @@ select.status-edit.bFob {
 select.status-edit.bC {
   background: #F3F4F6;
   color: #4B5563;
+}
+
+select.status-edit.bDev {
+  background: #FFF1F2;
+  color: #BE123C;
 }
 
 select.status-edit:hover {
@@ -1153,6 +1179,15 @@ select.status-edit:hover {
   background: var(--bg);
   padding: 3px 6px;
   border-radius: 5px;
+  white-space: nowrap;
+}
+
+/* Células somente-leitura para perfil Vendedor */
+.td-readonly {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--text);
+  padding: 2px 0;
   white-space: nowrap;
 }
 
@@ -1288,6 +1323,21 @@ tbody tr:hover {
 
 tbody tr:last-child {
   border-bottom: none;
+}
+
+/* ── LINHA DE LICITAÇÃO (SOLANGE DOMINGUES) ─── */
+tbody tr.row-licitacao {
+  background-color: #FDF6EE;
+  border-bottom: 1px solid #E8D5B7;
+}
+
+tbody tr.row-licitacao:hover {
+  background-color: #F7ECD8;
+}
+
+.td-licitacao-vend {
+  color: #7C4A1E !important;
+  font-weight: 600 !important;
 }
 
 tbody td {
@@ -1920,3 +1970,38 @@ input[type="date"].datef::-webkit-calendar-picker-indicator {
     display: none; /* Oculta textos na barra inferior para telas muito estreitas */
   }
 }
+/* ══════════════════════════════════════════════════════════════
+   LOGS DE AUDITORIA
+   ══════════════════════════════════════════════════════════════ */
+
+/* Badge de ação */
+.log-badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.log-b-ok      { background: #dcfce7; color: #166534; }
+.log-b-danger  { background: #fee2e2; color: #991b1b; }
+.log-b-warn    { background: #fef3c7; color: #92400e; }
+.log-b-teal    { background: #ccfbf1; color: #0f5e51; }
+.log-b-blue    { background: #dbeafe; color: #1e40af; }
+.log-b-muted   { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+
+/* Célula de detalhe */
+.log-detalhe-cell {
+  font-size: 12px;
+  color: var(--text);
+  max-width: 360px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Diff inline */
+.log-diff-campo { font-weight: 700; color: var(--navy); }
+.log-diff-de    { color: var(--danger); text-decoration: line-through; }
+.log-diff-para  { color: #166534; font-weight: 600; }
