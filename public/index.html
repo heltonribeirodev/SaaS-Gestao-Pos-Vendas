@@ -11,7 +11,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link rel="icon" type="image/png" href="assets/images/ForteCare-F-colors.png">
 
-  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/style.css?v=2">
 
   <!-- Font Awesome CDN adicionado -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -21,12 +21,14 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- Configurações para PWA -->
-  <link rel="manifest" href="manifest.json">
+  
   <meta name="theme-color" content="#0056b3">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="ForteCare">
-  <link rel="apple-touch-icon" href="assets/images/ForteCare-F-colors.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/images/logo-pwa192.png">
+  <link rel="apple-touch-icon" href="/assets/images/logo-pwa192.png">
+  <link rel="manifest" href="/manifest.json">
 </head>
 
 <body>
@@ -81,7 +83,8 @@
         </div>
       </div>
       <div class="topbar-right">
-        <button class="btn btn-ghost" onclick="exportCSV()"><i class="fa-solid fa-arrow-up-from-bracket"></i> Exportar Planilha</button>
+        <button class="btn btn-ghost" onclick="exportCSV()"><i class="fa-solid fa-arrow-up-from-bracket"></i> Exportar
+          Planilha</button>
         <button class="btn btn-ghost" onclick="openManualModal()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="12" y1="5" x2="12" y2="19" />
@@ -252,11 +255,11 @@
             <div class="chart-box"><canvas id="c-transp"></canvas></div>
           </div>
           <div class="chart-card">
-                <div class="chart-title">Distribuição Geográfica (UF)</div>
-                <div class="chart-box" style="height: 280px; position: relative;">
-                  <div id="map-uf" style="width: 100%; height: 100%; border-radius: 8px;"></div>
-                </div>
-              </div>
+            <div class="chart-title">Distribuição Geográfica (UF)</div>
+            <div class="chart-box" style="height: 280px; position: relative;">
+              <div id="map-uf" style="width: 100%; height: 100%; border-radius: 8px;"></div>
+            </div>
+          </div>
         </div>
 
         <div class="t-card">
@@ -501,48 +504,67 @@
         </div>
 
         <!-- Filtros -->
-        <div class="t-card" style="padding:16px 20px; margin-bottom:16px">
-          <div class="frow" style="gap:10px; flex-wrap:wrap; align-items:flex-end">
-            <div>
-              <label class="filter-label">Tipo de Ação</label>
-              <select id="log-f-acao" class="fsel" onchange="loadLogs(true)" style="min-width:200px">
-                <option value="">Todas as ações</option>
-                <optgroup label="Acesso">
-                  <option value="LOGIN_OK">Login bem-sucedido</option>
-                  <option value="LOGIN_FALHA">Falha de login</option>
-                  <option value="LOGOUT">Logout</option>
-                  <option value="SENHA_ALTERADA">Senha alterada</option>
-                  <option value="SENHA_REDEFINIDA">Senha redefinida</option>
-                </optgroup>
-                <optgroup label="Pedidos">
-                  <option value="PEDIDO_CRIADO">Pedido criado</option>
-                  <option value="PEDIDO_EDITADO">Pedido editado</option>
-                  <option value="PEDIDO_EXCLUIDO">Pedido excluído</option>
-                  <option value="PEDIDO_IMPORTADO">Importação de planilha</option>
-                </optgroup>
-                <optgroup label="Usuários">
-                  <option value="USUARIO_CRIADO">Usuário criado</option>
-                  <option value="USUARIO_EDITADO">Usuário editado</option>
-                  <option value="USUARIO_EXCLUIDO">Usuário excluído</option>
-                </optgroup>
-              </select>
+        <div class="filters-wrap" style="flex-direction:column; align-items:stretch; gap:10px">
+          <!-- Linha 1: Ação + NF + Busca + Limpar -->
+          <div class="frow">
+            <span class="f-label" style="flex-shrink:0">Filtros:</span>
+            <select id="log-f-acao" class="fsel" onchange="loadLogs(true)" style="min-width:190px">
+              <option value="">Todas as ações</option>
+              <optgroup label="Acesso">
+                <option value="LOGIN_OK">Login bem-sucedido</option>
+                <option value="LOGIN_FALHA">Falha de login</option>
+                <option value="LOGOUT">Logout</option>
+                <option value="SENHA_ALTERADA">Senha alterada</option>
+                <option value="SENHA_REDEFINIDA">Senha redefinida</option>
+              </optgroup>
+              <optgroup label="Planilha / Pedidos">
+                <option value="PEDIDO_CRIADO">Pedido criado</option>
+                <option value="PEDIDO_EDITADO">Pedido editado</option>
+                <option value="PEDIDO_EXCLUIDO">Pedido excluído</option>
+                <option value="PEDIDO_IMPORTADO">Importação de planilha</option>
+                <option value="PLANILHA_EXPORTADA">Exportação de planilha</option>
+              </optgroup>
+              <optgroup label="Usuários">
+                <option value="USUARIO_CRIADO">Usuário criado</option>
+                <option value="USUARIO_EDITADO">Usuário editado</option>
+                <option value="USUARIO_EXCLUIDO">Usuário excluído</option>
+              </optgroup>
+            </select>
+            <!-- <div class="fsearch" style="min-width:130px; max-width:160px">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--muted);flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              <input type="text" id="log-f-nf" placeholder="Nº da NF" oninput="debounceLoadLogs()">
+            </div> -->
+            <div class="fsearch" style="min-width:200px; flex:1">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                style="color:var(--muted);flex-shrink:0">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+              <input type="text" id="log-f-busca" placeholder="Buscar por usuário, detalhe..."
+                oninput="debounceLoadLogs()">
             </div>
-            <div>
-              <label class="filter-label">Busca (usuário / detalhe / ID)</label>
-              <input type="text" id="log-f-busca" class="fsearch" placeholder="Digite para buscar..."
-                     style="min-width:220px" oninput="debounceLoadLogs()">
-            </div>
-            <div>
-              <label class="filter-label">De</label>
-              <input type="date" id="log-f-de" class="entrega-edit-input" onchange="loadLogs(true)">
-            </div>
-            <div>
-              <label class="filter-label">Até</label>
-              <input type="date" id="log-f-ate" class="entrega-edit-input" onchange="loadLogs(true)">
-            </div>
-            <button class="btn btn-ghost" onclick="clearLogsFilters()" style="height:36px">
-              <i class="fa-solid fa-xmark" style="font-size:12px; margin-right:4px"></i> Limpar
+            <button class="btn btn-ghost" onclick="clearLogsFilters()" style="font-size:12px">
+              <i class="fa-solid fa-xmark" style="font-size:11px; margin-right:4px"></i> Limpar
             </button>
+          </div>
+
+          <div class="f-divider"></div>
+
+          <!-- Linha 2: Período -->
+          <div class="frow">
+            <span class="f-label" style="flex-shrink:0">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                style="vertical-align:middle; margin-right:3px">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              Período:
+            </span>
+            <input type="date" id="log-f-de" class="fsel log-date-input" onchange="loadLogs(true)">
+            <span style="color:var(--muted); font-size:12px; padding:0 4px">até</span>
+            <input type="date" id="log-f-ate" class="fsel log-date-input" onchange="loadLogs(true)">
           </div>
         </div>
 
@@ -567,13 +589,15 @@
                 </tr>
               </thead>
               <tbody id="logs-body">
-                <tr><td colspan="7" class="td-empty">Carregando logs...</td></tr>
+                <tr>
+                  <td colspan="7" class="td-empty">Carregando logs...</td>
+                </tr>
               </tbody>
             </table>
           </div>
 
           <!-- Paginação -->
-          <div class="pagination-wrap" id="logs-pagination" style="padding:12px 20px; border-top:1px solid var(--border)"></div>
+          <div class="t-footer" id="logs-pagination" style="display:none"></div>
         </div>
       </div>
 
@@ -797,23 +821,24 @@
         <!-- Formulário de perfil (form evita avisos do Chrome sobre password fora de form) -->
         <form id="perfil-form" onsubmit="return false;" autocomplete="on">
 
-        <!-- Nome -->
-        <div class="login-field">
-          <label>Nome completo</label>
-          <input type="text" id="perfil-nome" placeholder="Seu nome" autocomplete="name">
-        </div>
+          <!-- Nome -->
+          <div class="login-field">
+            <label>Nome completo</label>
+            <input type="text" id="perfil-nome" placeholder="Seu nome" autocomplete="name">
+          </div>
 
-        <!-- Nova senha -->
-        <div class="login-field" style="margin-top:4px">
-          <label>Nova senha <span style="font-weight:400;color:var(--muted);font-size:11px">(deixe em branco para não alterar)</span></label>
-          <input type="password" id="perfil-senha" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
-        </div>
+          <!-- Nova senha -->
+          <div class="login-field" style="margin-top:4px">
+            <label>Nova senha <span style="font-weight:400;color:var(--muted);font-size:11px">(deixe em branco para não
+                alterar)</span></label>
+            <input type="password" id="perfil-senha" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+          </div>
 
-        <!-- Confirmar senha (aparece ao digitar) -->
-        <div class="login-field" id="perfil-confirma-wrap" style="display:none">
-          <label>Confirmar nova senha</label>
-          <input type="password" id="perfil-confirma" placeholder="Repita a nova senha" autocomplete="new-password">
-        </div>
+          <!-- Confirmar senha (aparece ao digitar) -->
+          <div class="login-field" id="perfil-confirma-wrap" style="display:none">
+            <label>Confirmar nova senha</label>
+            <input type="password" id="perfil-confirma" placeholder="Repita a nova senha" autocomplete="new-password">
+          </div>
 
         </form>
 
@@ -841,7 +866,9 @@
 
     <div class="toast" id="toast"></div>
 
-    <script src="assets/js/script.js"></script>
+    <script src="assets/js/script.js?v=2"></script>
+    <!-- Datalist de transportadoras (populado via JS após carga dos dados) -->
+    <datalist id="transp-datalist"></datalist>
 
     <script>
       if ('serviceWorker' in navigator) {

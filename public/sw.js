@@ -5,8 +5,8 @@ const ASSETS_TO_CACHE = [
   '/assets/css/login.css',
   '/assets/css/style.css',
   '/assets/js/login.js',
-  '/assets/js/script.js',
-  '/assets/images/ForteCare-F-colors.png'
+  '/assets/images/logo-pwa192.png',
+  '/assets/images/logo-pwa512.png'
 ];
 
 // Instalação do Service Worker

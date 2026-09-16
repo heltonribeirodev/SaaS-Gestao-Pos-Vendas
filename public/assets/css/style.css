@@ -1149,6 +1149,43 @@ select.status-edit:hover {
   background: #fff;
 }
 
+.previsao-edit-input {
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  outline: none;
+  width: 118px;
+}
+
+.previsao-edit-input:focus {
+  border-color: var(--teal);
+  background: #fff;
+}
+
+.transp-edit-input {
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  outline: none;
+  width: 100%;
+  min-width: 130px;
+  max-width: 200px;
+  text-transform: uppercase;
+}
+
+.transp-edit-input:focus {
+  border-color: var(--teal);
+  background: #fff;
+}
+
 .frete-edit-input {
   font-size: 11px;
   padding: 4px 6px;
@@ -1232,7 +1269,8 @@ select.status-edit:hover {
   margin-right: 2px;
 }
 
-select.fsel {
+select.fsel,
+input.fsel {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1243,6 +1281,17 @@ select.fsel {
   outline: none;
   cursor: pointer;
   min-width: 140px;
+}
+
+input.fsel {
+  cursor: default;
+}
+
+/* Date inputs na seção de filtros de auditoria */
+input.log-date-input {
+  min-width: 130px;
+  max-width: 150px;
+  cursor: pointer;
 }
 
 #f-transp {
@@ -1989,6 +2038,7 @@ input[type="date"].datef::-webkit-calendar-picker-indicator {
 .log-b-warn    { background: #fef3c7; color: #92400e; }
 .log-b-teal    { background: #ccfbf1; color: #0f5e51; }
 .log-b-blue    { background: #dbeafe; color: #1e40af; }
+.log-b-purple  { background: #ede9fe; color: #5b21b6; }
 .log-b-muted   { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
 
 /* Célula de detalhe */

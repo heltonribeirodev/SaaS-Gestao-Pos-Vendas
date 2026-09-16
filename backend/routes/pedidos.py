@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from typing import Optional
 import re
 import json
@@ -179,6 +179,24 @@ async def importar(payload: ImportarPayload, usuario: dict = Depends(get_usuario
         raise HTTPException(status_code=500, detail=f"Erro na importação: {str(e)}")
     finally:
         release_conn(conn)
+
+
+# ── POST /api/pedidos/registrar-exportacao ───────────────────────
+@router.post("/registrar-exportacao")
+async def registrar_exportacao(
+    payload: dict = Body(default={}),
+    usuario: dict = Depends(get_usuario_atual)
+):
+    """Registra no audit log que o usuário exportou a planilha CSV de pedidos."""
+    total = payload.get("total", 0) if payload else 0
+    registrar_log(
+        usuario["id"],
+        usuario["nome"],
+        "PLANILHA_EXPORTADA",
+        entidade="pedidos",
+        detalhe=json.dumps({"total_registros": total}, ensure_ascii=False),
+    )
+    return {"ok": True}
 
 
 # ── PUT /api/pedidos/:id ─────────────────────────────────────────

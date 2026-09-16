@@ -322,6 +322,7 @@ function buildFilterDropdowns() {
 
   populate('f-vend', vends, 'Todos os Vendedores');
   populate('f-transp', transps, 'Todas as Transportadoras');
+  populateTranspDatalist();
   populate('f-uf', ufs, 'Todos os Estados');
 }
 
@@ -968,10 +969,26 @@ function renderPedidos() {
       <td class="td-dest" title="${item.destinatario}">${item.destinatario}</td>
       <td><span style="font-weight:700; color:var(--navy)">${item.uf}</span></td>
       <td class="td-ct" title="${item.municipio}">${item.municipio}</td>
-      <td>${item.transportadora}</td>
+      <td>
+        ${PODE_EDITAR
+          ? `<input type="text"
+                    class="transp-edit-input"
+                    list="transp-datalist"
+                    value="${escapeHtml(item.transportadora)}"
+                    title="${escapeHtml(item.transportadora)}"
+                    onchange="updatePedidoAPI(${item._rowId}, { transportadora: this.value.trim().toUpperCase() })">`
+          : `<span title="${escapeHtml(item.transportadora)}">${item.transportadora}</span>`}
+      </td>
       <td>${formatDateToBr(item.emissao)}</td>
       <td class="td-money">${formatMoney(item.valorNF)}</td>
-      <td>${item.previsao}</td>
+      <td>
+        ${PODE_EDITAR
+          ? `<input type="date"
+                    class="previsao-edit-input"
+                    value="${brToIso(item.previsao)}"
+                    onchange="updatePrevisao(${item._rowId}, this.value)">`
+          : `<span class="td-readonly">${item.previsao || '—'}</span>`}
+      </td>
       <td>
         ${PODE_EDITAR
           ? `<input type="date" class="entrega-edit-input" value="${brToIso(item.entrega)}"
@@ -1044,11 +1061,22 @@ async function updatePedidoAPI(rowId, updatePayload) {
       if (updatePayload.obs !== undefined) item.obs = updatePayload.obs;
       if (updatePayload.obs_rastreio !== undefined) item.obs_rastreio = updatePayload.obs_rastreio;
       if (updatePayload.contato !== undefined) item.contato = updatePayload.contato;
+      if (updatePayload.transportadora !== undefined) {
+        item.transportadora = updatePayload.transportadora;
+        // Atualiza o datalist com a nova transportadora (se for nova)
+        populateTranspDatalist();
+      }
 
       // CORREÇÃO: Se a data recebida for null, deixa o campo da UI em branco
       if (updatePayload.entrega !== undefined) {
         item.entrega = (updatePayload.entrega && typeof updatePayload.entrega === 'string')
           ? isoToBr(updatePayload.entrega)
+          : '';
+      }
+
+      if (updatePayload.previsao !== undefined) {
+        item.previsao = (updatePayload.previsao && updatePayload.previsao !== '0001-01-01')
+          ? isoToBr(updatePayload.previsao)
           : '';
       }
 
@@ -1116,6 +1144,24 @@ function autoEntregue(rowId, dateValue) {
   item.entrega = dateValue ? isoToBr(dateValue) : '';
 
   updatePedidoAPI(rowId, payload);
+}
+
+// Atualiza a previsão de entrega (date input na tabela)
+function updatePrevisao(rowId, dateValue) {
+  const item = findByRowId(rowId);
+  if (!item) return;
+  // Usa '0001-01-01' como sinal de "limpar" (mesmo padrão do campo entrega)
+  const payload = { previsao: dateValue || '0001-01-01' };
+  item.previsao = dateValue ? isoToBr(dateValue) : '';
+  updatePedidoAPI(rowId, payload);
+}
+
+// Popula o datalist de transportadoras com todos os valores únicos do dataset
+function populateTranspDatalist() {
+  const dl = document.getElementById('transp-datalist');
+  if (!dl) return;
+  const uniq = [...new Set(dataSET.map(i => i.transportadora).filter(Boolean))].sort();
+  dl.innerHTML = uniq.map(t => `<option value="${escapeHtml(t)}">`).join('');
 }
 
 function clearObs(rowId) {
@@ -1356,6 +1402,11 @@ function exportCSV() {
   const link = document.createElement("a"); link.setAttribute("href", url); link.setAttribute("download", `fortecare_export_${new Date().toISOString().split('T')[0]}.csv`);
   document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
   showToast(`${filteredData.length} registro(s) exportado(s).`);
+  // Registra o evento de exportação no log de auditoria
+  apiFetch('/api/pedidos/registrar-exportacao', {
+    method: 'POST',
+    body: JSON.stringify({ total: filteredData.length })
+  }).catch(() => {}); // silencia erros — não deve interromper o fluxo
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1373,6 +1424,7 @@ function debounceLoadLogs() {
 
 function clearLogsFilters() {
   document.getElementById('log-f-acao').value = '';
+  document.getElementById('log-f-nf').value = '';
   document.getElementById('log-f-busca').value = '';
   document.getElementById('log-f-de').value = '';
   document.getElementById('log-f-ate').value = '';
@@ -1382,12 +1434,14 @@ function clearLogsFilters() {
 async function loadLogs(reset = false) {
   if (reset) logsOffset = 0;
   const acao  = document.getElementById('log-f-acao')?.value || '';
+  const nf    = document.getElementById('log-f-nf')?.value?.trim() || '';
   const busca = document.getElementById('log-f-busca')?.value || '';
   const de    = document.getElementById('log-f-de')?.value || '';
   const ate   = document.getElementById('log-f-ate')?.value || '';
 
   const params = new URLSearchParams({ limit: LOGS_LIMIT, offset: logsOffset });
   if (acao)  params.set('acao', acao);
+  if (nf)    params.set('nf', nf);
   if (busca) params.set('busca', busca);
   if (de)    params.set('de', de);
   if (ate)   params.set('ate', ate);
@@ -1450,7 +1504,8 @@ function getLogBadgeClass(acao) {
     PEDIDO_CRIADO:    'log-b-teal',
     PEDIDO_EDITADO:   'log-b-blue',
     PEDIDO_EXCLUIDO:  'log-b-danger',
-    PEDIDO_IMPORTADO: 'log-b-teal',
+    PEDIDO_IMPORTADO:   'log-b-teal',
+    PLANILHA_EXPORTADA: 'log-b-purple',
     USUARIO_CRIADO:   'log-b-teal',
     USUARIO_EDITADO:  'log-b-blue',
     USUARIO_EXCLUIDO: 'log-b-danger',
@@ -1468,7 +1523,8 @@ function getLogLabel(acao) {
     PEDIDO_CRIADO:    'Pedido criado',
     PEDIDO_EDITADO:   'Pedido editado',
     PEDIDO_EXCLUIDO:  'Pedido excluído',
-    PEDIDO_IMPORTADO: 'Importação',
+    PEDIDO_IMPORTADO:   'Importação CSV',
+    PLANILHA_EXPORTADA: 'Exportação CSV',
     USUARIO_CRIADO:   'Usuário criado',
     USUARIO_EDITADO:  'Usuário editado',
     USUARIO_EXCLUIDO: 'Usuário excluído',
@@ -1496,6 +1552,10 @@ function formatLogDetalhe(raw) {
     if (obj.inseridos !== undefined) {
       return `${obj.inseridos} de ${obj.total_enviados} linhas importadas`;
     }
+    // PLANILHA_EXPORTADA
+    if (obj.total_registros !== undefined) {
+      return `${obj.total_registros} registro${obj.total_registros !== 1 ? 's' : ''} exportado${obj.total_registros !== 1 ? 's' : ''}`;
+    }
     // USUARIO_CRIADO / EDITADO / EXCLUIDO
     if (obj.nome || obj.email) {
       const campos = obj.campos ? ' · Campos: ' + Object.keys(obj.campos).join(', ') : '';
@@ -1514,22 +1574,34 @@ function renderLogsPagination() {
   if (!wrap) return;
   const totalPages = Math.ceil(logsTotal / LOGS_LIMIT);
   const currentPage = Math.floor(logsOffset / LOGS_LIMIT) + 1;
-  if (totalPages <= 1) { wrap.innerHTML = ''; return; }
 
-  let html = `<div class="pag-info">${logsTotal.toLocaleString('pt-BR')} registros · Página ${currentPage} de ${totalPages}</div><div class="pag-btns">`;
-  html += `<button class="pag-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="changeLogsPage(${currentPage - 1})">‹ Anterior</button>`;
-
-  const delta = 2;
-  for (let p = 1; p <= totalPages; p++) {
-    if (p === 1 || p === totalPages || (p >= currentPage - delta && p <= currentPage + delta)) {
-      html += `<button class="pag-btn ${p === currentPage ? 'active' : ''}" onclick="changeLogsPage(${p})">${p}</button>`;
-    } else if (p === currentPage - delta - 1 || p === currentPage + delta + 1) {
-      html += `<span class="pag-ellipsis">…</span>`;
-    }
+  if (totalPages <= 1) {
+    wrap.style.display = logsTotal > 0 ? 'flex' : 'none';
+    wrap.innerHTML = logsTotal > 0
+      ? `<span class="t-count">${logsTotal.toLocaleString('pt-BR')} registro${logsTotal !== 1 ? 's' : ''}</span><div class="pag"></div>`
+      : '';
+    return;
   }
-  html += `<button class="pag-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="changeLogsPage(${currentPage + 1})">Próximo ›</button>`;
-  html += '</div>';
-  wrap.innerHTML = html;
+
+  wrap.style.display = 'flex';
+
+  // Botões de página — mesmo padrão da tabela de pedidos
+  let pagHtml = `<button class="pb" ${currentPage === 1 ? 'disabled' : ''} onclick="changeLogsPage(${currentPage - 1})">‹</button>`;
+  const delta = 2, pages = new Set();
+  pages.add(1); pages.add(totalPages);
+  for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) pages.add(i);
+  const sorted = [...pages].sort((a, b) => a - b);
+  let prev = 0;
+  for (const p of sorted) {
+    if (p - prev > 1) pagHtml += `<span class="pb pb-ellipsis">…</span>`;
+    pagHtml += `<button class="pb ${p === currentPage ? 'on' : ''}" onclick="changeLogsPage(${p})">${p}</button>`;
+    prev = p;
+  }
+  pagHtml += `<button class="pb" ${currentPage === totalPages ? 'disabled' : ''} onclick="changeLogsPage(${currentPage + 1})">›</button>`;
+
+  wrap.innerHTML = `
+    <span class="t-count">${logsTotal.toLocaleString('pt-BR')} registro${logsTotal !== 1 ? 's' : ''} · Página ${currentPage} de ${totalPages}</span>
+    <div class="pag">${pagHtml}</div>`;
 }
 
 function changeLogsPage(p) {
@@ -1541,11 +1613,13 @@ function changeLogsPage(p) {
 async function exportLogsCSV() {
   try {
     const acaoEl  = document.getElementById('log-f-acao');
+    const nfEl    = document.getElementById('log-f-nf');
     const buscaEl = document.getElementById('log-f-busca');
     const deEl    = document.getElementById('log-f-de');
     const ateEl   = document.getElementById('log-f-ate');
 
     let acao  = acaoEl?.value?.trim() || '';
+    let nf    = nfEl?.value?.trim() || '';
     let busca = buscaEl?.value?.trim() || '';
     let de    = deEl?.value?.trim() || '';
     let ate   = ateEl?.value?.trim() || '';
@@ -1555,6 +1629,7 @@ async function exportLogsCSV() {
 
     const params = new URLSearchParams({ limit: '5000', offset: '0' });
     if (acao)  params.set('acao', acao);
+    if (nf)    params.set('nf', nf);
     if (busca) params.set('busca', busca);
     if (de)    params.set('de', de);
     if (ate)   params.set('ate', ate);

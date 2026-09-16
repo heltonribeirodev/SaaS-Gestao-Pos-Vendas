@@ -13,9 +13,10 @@ router = APIRouter()
 async def listar_logs(
     acao: Optional[str]  = Query(None),
     busca: Optional[str] = Query(None),
+    nf: Optional[str]    = Query(None),
     de: Optional[str]    = Query(None),
     ate: Optional[str]   = Query(None),
-    limit: int           = Query(100, le=10000), # <-- Mude de le=500 para le=10000
+    limit: int           = Query(100, le=10000),
     offset: int          = Query(0),
     usuario: dict        = Depends(get_usuario_atual),
 ):
@@ -35,6 +36,12 @@ async def listar_logs(
                 "(usuario_nome ILIKE %s OR detalhe ILIKE %s OR entidade_id ILIKE %s)"
             )
             params.extend([f"%{busca}%", f"%{busca}%", f"%{busca}%"])
+        if nf:
+            # Busca o número da NF dentro do campo detalhe (JSON) e no entidade_id
+            conditions.append(
+                "(detalhe ILIKE %s OR entidade_id ILIKE %s)"
+            )
+            params.extend([f"%{nf}%", f"%{nf}%"])
         if de:
             conditions.append("criado_em >= %s::timestamptz")
             params.append(de)
